@@ -1,0 +1,11 @@
+# Secrets — never commit
+.env.local
+app/.env.local
+
+# App build artifacts
+app/node_modules
+app/dist
+app/dev-dist
+
+# OS
+.DS_Store

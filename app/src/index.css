@@ -1,0 +1,40 @@
+:root {
+  --color-navy: #0f172a;
+  --color-slate: #334155;
+  --color-gold: #b8860b;
+  --color-bg: #f8fafc;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-navy);
+}
+
+form {
+  max-width: 320px;
+  margin: 4rem auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+input,
+button {
+  padding: 0.6rem 0.8rem;
+  font-size: 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-slate);
+}
+
+button {
+  background: var(--color-navy);
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--color-gold);
+}

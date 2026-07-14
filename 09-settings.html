@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Schoolbook — Settings</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16233D; --slate:#2F4468; --slate-soft:#5B6E90;
+    --gold:#B98B3E; --gold-soft:#E4C88A;
+    --paper:#F4F5F8; --paper-card:#FFFFFF; --line:#DCE0E9;
+    --success:#3A7D5C; --success-bg:#E9F3EE;
+    --rust:#B84C3E; --rust-bg:#FBEBE9;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink); display:flex; min-height:100vh; -webkit-font-smoothing:antialiased; }
+
+  /* ---------- SIDEBAR (shared shell) ---------- */
+  .sidebar{ width:230px; flex-shrink:0; background:var(--ink); color:#fff; display:flex; flex-direction:column; padding:22px 16px; }
+  .brand{ display:flex; align-items:center; gap:10px; padding:0 6px 24px; }
+  .brand-mark{ width:30px; height:30px; border:1.5px solid var(--gold-soft); border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:700; font-size:14px; color:var(--gold-soft); flex-shrink:0; }
+  .brand-name{ font-family:'Source Serif 4', serif; font-weight:600; font-size:16.5px; }
+  .nav-section-label{ font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#7C89A6; padding:14px 10px 8px; }
+  .nav-item{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px; font-size:13.5px; font-weight:500; color:#C4CCDE; cursor:pointer; margin-bottom:2px; transition:background .12s ease, color .12s ease; text-decoration:none; }
+  .nav-item:hover{ background:rgba(255,255,255,0.06); color:#fff; }
+  .nav-item.active{ background:var(--slate); color:#fff; font-weight:600; }
+  .nav-icon{ width:16px; text-align:center; font-size:13px; flex-shrink:0; }
+  .sidebar-foot{ margin-top:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:14px; display:flex; align-items:center; gap:9px; }
+  .school-avatar{ width:30px; height:30px; border-radius:8px; background:var(--slate); display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:600; font-size:13px; }
+  .school-meta{ line-height:1.3; }
+  .school-meta .name{ font-size:12.5px; font-weight:600; }
+  .school-meta .role{ font-size:10.5px; color:#8895AF; }
+
+  /* ---------- MAIN ---------- */
+  .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .topbar{ height:64px; flex-shrink:0; background:var(--paper-card); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; padding:0 28px; }
+  .topbar h1{ font-family:'Source Serif 4', serif; font-size:19px; font-weight:600; }
+  .session-pill{ display:flex; align-items:center; gap:8px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:600; color:var(--slate); font-family:'IBM Plex Mono', monospace; }
+  .session-pill .dot{ width:6px; height:6px; border-radius:50%; background:var(--success); }
+
+  .content{ padding:28px 32px 60px; overflow-y:auto; }
+  .page-head{ margin-bottom:18px; }
+  .page-head .eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--slate-soft); margin-bottom:6px; }
+  .page-head h2{ font-family:'Source Serif 4', serif; font-size:24px; font-weight:600; }
+  .page-head p{ font-size:13px; color:var(--slate-soft); margin-top:4px; max-width:520px; }
+
+  .tabs{ display:flex; gap:2px; background:var(--line); padding:3px; border-radius:9px; margin-bottom:22px; width:fit-content; }
+  .tab{ padding:9px 18px; font-size:13px; font-weight:600; color:var(--slate-soft); border-radius:7px; cursor:pointer; transition:all .15s ease; user-select:none; }
+  .tab.active{ background:var(--paper-card); color:var(--ink); box-shadow:0 1px 3px rgba(22,35,61,0.08); }
+
+  .tab-subhead{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:16px; }
+  .tab-subhead p{ font-size:12.5px; color:var(--slate-soft); margin-top:3px; max-width:480px; }
+
+  .btn-primary{ padding:10px 16px; background:var(--ink); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:background .15s ease; white-space:nowrap; }
+  .btn-primary:hover{ background:var(--slate); }
+
+  .view{ display:none; }
+  .view.active{ display:block; }
+
+  /* ===== Classes & Arms component styles ===== */
+  .level-card{ background:var(--paper-card); border:1px solid var(--line); border-radius:12px; margin-bottom:12px; overflow:hidden; }
+  .level-head{ display:flex; align-items:center; gap:14px; padding:15px 18px; cursor:pointer; }
+  .level-order-badge{ font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--slate-soft); width:22px; }
+  .level-title{ flex:1; }
+  .level-title .name{ font-size:14.5px; font-weight:600; }
+  .level-title .sub{ font-size:11.5px; color:var(--slate-soft); margin-top:2px; }
+  .arm-tags{ display:flex; gap:6px; }
+  .arm-tag{ font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:600; background:var(--paper); border:1px solid var(--line); color:var(--slate); padding:4px 8px; border-radius:6px; }
+  .chevron{ font-size:11px; color:var(--slate-soft); transition:transform .15s ease; width:14px; text-align:center; }
+  .level-card.open .chevron{ transform:rotate(90deg); }
+  .level-body{ display:none; padding:0 18px 18px 54px; border-top:1px solid var(--line); }
+  .level-card.open .level-body{ display:block; padding-top:14px; }
+  .arm-row{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .arm-row:last-of-type{ border-bottom:none; }
+  .arm-badge{ width:26px; height:26px; border-radius:7px; background:var(--paper); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono', monospace; font-weight:700; font-size:12px; color:var(--slate); }
+  .arm-name{ flex:1; font-weight:500; }
+  .count-group{ display:flex; align-items:center; gap:10px; }
+  .count-field{ display:flex; align-items:center; gap:5px; }
+  .count-field label{ font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; }
+  .count-field input{ width:44px; padding:4px 6px; text-align:center; border:1px solid var(--line); border-radius:6px; font-size:12px; font-family:'IBM Plex Mono', monospace; font-weight:600; color:var(--ink); outline:none; }
+  .count-field input:focus{ border-color:var(--slate); box-shadow:0 0 0 2px rgba(47,68,104,0.1); }
+  .enrolled-badge{ font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--slate-soft); }
+  .progress-note{ font-size:10.5px; color:var(--gold); font-weight:600; }
+  .arm-remove{ width:22px; height:22px; border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--slate-soft); cursor:pointer; font-size:14px; transition:background .12s ease, color .12s ease; }
+  .arm-remove:hover{ background:var(--rust-bg); color:var(--rust); }
+  .add-arm-row{ display:flex; gap:8px; margin-top:12px; }
+  .add-arm-row input{ flex:1; padding:8px 11px; border:1px dashed var(--line); border-radius:7px; font-size:12.5px; outline:none; }
+  .add-arm-row input:focus{ border-color:var(--slate); border-style:solid; }
+  .add-arm-row button{ padding:8px 14px; background:var(--paper); border:1px solid var(--line); border-radius:7px; font-size:12px; font-weight:600; color:var(--slate); cursor:pointer; }
+  .add-arm-row button:hover{ background:var(--line); }
+  .add-level-card{ display:flex; align-items:center; gap:10px; padding:14px 18px; border:1.5px dashed var(--line); border-radius:12px; color:var(--slate-soft); font-size:13px; font-weight:600; cursor:pointer; transition:border-color .15s ease, color .15s ease; }
+  .add-level-card:hover{ border-color:var(--slate-soft); color:var(--slate); }
+
+  /* ===== Fee Items component styles ===== */
+  .fee-card{ background:var(--paper-card); border:1px solid var(--line); border-radius:12px; margin-bottom:12px; overflow:hidden; }
+  .fee-head{ display:flex; align-items:center; gap:14px; padding:15px 18px; cursor:pointer; }
+  .fee-icon{ width:34px; height:34px; border-radius:8px; background:var(--paper); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .fee-title{ flex:1; }
+  .fee-title .name{ font-size:14.5px; font-weight:600; }
+  .fee-title .sub{ font-size:11.5px; color:var(--slate-soft); margin-top:2px; }
+  .badge{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; font-weight:600; padding:4px 8px; border-radius:6px; white-space:nowrap; }
+  .badge.oneoff{ background:var(--rust-bg); color:var(--rust); }
+  .badge.recurring{ background:var(--success-bg); color:var(--success); }
+  .badge.all{ background:var(--paper); color:var(--slate); border:1px solid var(--line); }
+  .badge.new{ background:#FCF3E3; color:var(--gold); border:1px solid var(--gold-soft); }
+  .badge-row{ display:flex; gap:6px; }
+  .fee-card.open .chevron{ transform:rotate(90deg); }
+  .fee-body{ display:none; padding:0 18px 20px 66px; border-top:1px solid var(--line); }
+  .fee-card.open .fee-body{ display:block; padding-top:16px; }
+  .settings-row{ display:flex; gap:24px; margin-bottom:18px; flex-wrap:wrap; }
+  .setting-group label.group-label{ display:block; font-size:11px; font-weight:600; color:var(--slate-soft); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; font-family:'IBM Plex Mono', monospace; }
+  .segmented{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .segmented div{ padding:7px 13px; font-size:12.5px; font-weight:600; color:var(--slate-soft); cursor:pointer; background:var(--paper-card); }
+  .segmented div.sel{ background:var(--ink); color:#fff; }
+  .segmented div:not(:last-child){ border-right:1px solid var(--line); }
+  .price-mode-toggle{ display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .price-mode-toggle input{ width:16px; height:16px; accent-color:var(--slate); }
+  .price-mode-toggle label{ font-size:12.5px; font-weight:500; color:var(--slate); cursor:pointer; }
+  .flat-price{ display:flex; align-items:center; gap:8px; }
+  .flat-price span{ font-family:'IBM Plex Mono', monospace; font-weight:600; color:var(--slate-soft); }
+  .flat-price input{ width:130px; padding:8px 10px; border:1px solid var(--line); border-radius:7px; font-size:13px; font-family:'IBM Plex Mono', monospace; outline:none; }
+  .flat-price input:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+  .price-table{ border:1px solid var(--line); border-radius:9px; overflow:hidden; max-height:260px; overflow-y:auto; }
+  .price-row{ display:flex; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .price-row:last-child{ border-bottom:none; }
+  .price-row .lvl{ flex:1; font-weight:500; }
+  .price-row .cur{ font-family:'IBM Plex Mono', monospace; color:var(--slate-soft); margin-right:4px; }
+  .price-row input{ width:110px; padding:6px 9px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; font-family:'IBM Plex Mono', monospace; outline:none; text-align:right; }
+  .price-row input:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+  .add-fee-card{ display:flex; align-items:center; gap:10px; padding:14px 18px; border:1.5px dashed var(--line); border-radius:12px; color:var(--slate-soft); font-size:13px; font-weight:600; cursor:pointer; transition:border-color .15s ease, color .15s ease; }
+  .add-fee-card:hover{ border-color:var(--slate-soft); color:var(--slate); }
+  .add-level-row{ display:flex; gap:8px; }
+  .add-level-row input{ flex:1; padding:11px 13px; border:1px solid var(--line); border-radius:8px; font-size:13px; outline:none; font-family:'Inter', sans-serif; }
+  .add-level-row input:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+  .add-level-row button{ padding:0 16px; background:var(--paper); border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-weight:600; color:var(--slate); cursor:pointer; white-space:nowrap; }
+  .add-level-row button:hover{ background:var(--line); }
+
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:11px 20px; border-radius:8px; font-size:12.5px; font-weight:500; opacity:0; pointer-events:none; transition:all .25s ease; z-index:99; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand"><div class="brand-mark">S</div><div class="brand-name">Schoolbook</div></div>
+    <div class="nav-section-label">Overview</div>
+    <a class="nav-item" href="06-dashboard.html"><span class="nav-icon">◧</span>Dashboard</a>
+    <div class="nav-section-label">Records</div>
+    <a class="nav-item" href="04-students.html"><span class="nav-icon">☺</span>Students</a>
+    <a class="nav-item" href="07-payments.html"><span class="nav-icon">✎</span>Payments</a>
+    <a class="nav-item" href="10-class-register.html"><span class="nav-icon">▤</span>Class Register</a>
+    <a class="nav-item" href="11-promotion.html"><span class="nav-icon">↑</span>Promotion</a>
+    <a class="nav-item" href="08-reports.html"><span class="nav-icon">▦</span>Reports</a>
+    <div class="nav-section-label">Configuration</div>
+    <a class="nav-item active" href="09-settings.html"><span class="nav-icon">⚙</span>Settings</a>
+    <a class="nav-item" href="12-audit-log.html"><span class="nav-icon">🕐</span>Audit Log</a>
+    <div class="sidebar-foot">
+      <div class="school-avatar">B</div>
+      <div class="school-meta"><div class="name">Bright Path College</div><div class="role">Admin</div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h1>Settings</h1>
+      <div class="session-pill"><span class="dot"></span>2025/2026 · Term 1</div>
+    </div>
+
+    <div class="content">
+      <div class="page-head">
+        <div class="eyebrow">Configuration</div>
+        <h2>School setup</h2>
+        <p>Everything that shapes how the rest of Schoolbook works for your school — class structure and what students get charged for.</p>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="showTab('classes')">Classes &amp; Arms</div>
+        <div class="tab" onclick="showTab('fees')">Fee Items</div>
+      </div>
+
+      <!-- CLASSES & ARMS TAB -->
+      <div class="view active" id="tab-classes">
+        <div class="tab-subhead">
+          <div>
+            <p>Add arms to any class level — e.g. split SS3 into A, B, C. Levels with no arms added yet will use a single default section.</p>
+          </div>
+          <button class="btn-primary" onclick="showToast('Changes saved')">Save changes</button>
+        </div>
+
+        <div id="levelList"></div>
+
+        <div class="add-level-card" id="addLevelCard" onclick="showAddLevelInput()">+ Add another class level</div>
+        <div class="add-arm-row" id="addLevelInputRow" style="display:none; margin-top:0;">
+          <input type="text" id="newLevelInput2" placeholder="Class level name, e.g. Creche">
+          <button onclick="confirmAddLevel()">Add</button>
+          <button onclick="cancelAddLevel()" style="color:var(--slate-soft);">Cancel</button>
+        </div>
+      </div>
+
+      <!-- FEE ITEMS TAB -->
+      <div class="view" id="tab-fees">
+        <div class="tab-subhead">
+          <div>
+            <p>Set each item as one-off or per-term, decide who it applies to, and either give it one price for every class or vary the price by class level.</p>
+          </div>
+          <button class="btn-primary" onclick="showToast('Changes saved')">Save changes</button>
+        </div>
+
+        <div id="feeList"></div>
+
+        <div class="add-fee-card" id="addFeeCard" onclick="showAddFeeInput()">+ Add another fee item</div>
+        <div class="add-level-row" id="addFeeInputRow" style="display:none; margin-top:0;">
+          <input type="text" id="newFeeInput" placeholder="Fee item name, e.g. Textbooks">
+          <button onclick="confirmAddFeeItem()">Add</button>
+          <button onclick="cancelAddFeeItem()" style="color:var(--slate-soft);">Cancel</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Saved</div>
+
+<script>
+  function showTab(name){
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  // ===================== Classes & Arms =====================
+  let levels = [
+    { name:"Kindergarten", order:1, arms:["A"] },
+    { name:"Nursery 1", order:2, arms:["A"] },
+    { name:"Nursery 2", order:3, arms:["A"] },
+    { name:"Primary 1", order:4, arms:["A","B"] },
+    { name:"Primary 2", order:5, arms:["A","B"] },
+    { name:"Primary 3", order:6, arms:["A"] },
+    { name:"Primary 4", order:7, arms:["A"] },
+    { name:"Primary 5", order:8, arms:["A"] },
+    { name:"Primary 6", order:9, arms:["A"] },
+    { name:"JSS1", order:10, arms:["A","B"] },
+    { name:"JSS2", order:11, arms:["A","B"] },
+    { name:"JSS3", order:12, arms:["A"] },
+    { name:"SS1", order:13, arms:["A","B"] },
+    { name:"SS2", order:14, arms:["A","B"] },
+    { name:"SS3", order:15, arms:["A","B","C"] },
+  ];
+  let openLevelIndex = 14;
+
+  let reportedCounts = { "14-0":35, "14-1":30, "14-2":28 };
+  let enrolledCounts  = { "14-0":12, "14-1":9,  "14-2":7  };
+
+  function setReported(key, val){
+    reportedCounts[key] = parseInt(val) || 0;
+    renderLevels();
+  }
+
+  function renderLevels(){
+    const list = document.getElementById('levelList');
+    list.innerHTML = '';
+    levels.forEach((lvl, idx) => {
+      const card = document.createElement('div');
+      card.className = 'level-card' + (openLevelIndex === idx ? ' open' : '');
+
+      const armTags = lvl.arms.map(a => `<div class="arm-tag">${a}</div>`).join('');
+      const armRows = lvl.arms.map((a, ai) => {
+        const key = idx + '-' + ai;
+        const reported = reportedCounts[key] ?? 0;
+        const enrolled = enrolledCounts[key] ?? 0;
+        const note = reported > enrolled
+          ? `<div class="progress-note">${enrolled} of ${reported} added</div>`
+          : '';
+        return `
+        <div class="arm-row">
+          <div class="arm-badge">${a}</div>
+          <div class="arm-name">${lvl.name} ${a}</div>
+          <div class="count-group">
+            <div class="count-field">
+              <label>Reported</label>
+              <input type="number" min="0" value="${reported}" onchange="setReported('${key}', this.value)">
+            </div>
+            <div class="enrolled-badge">${enrolled} enrolled</div>
+            ${note}
+          </div>
+          <div class="arm-remove" onclick="removeArm(${idx}, ${ai}, event)">✕</div>
+        </div>
+      `;}).join('');
+
+      card.innerHTML = `
+        <div class="level-head" onclick="toggleLevel(${idx})">
+          <div class="level-order-badge">${String(lvl.order).padStart(2,'0')}</div>
+          <div class="level-title">
+            <div class="name">${lvl.name}</div>
+            <div class="sub">${lvl.arms.length} arm${lvl.arms.length !== 1 ? 's' : ''}</div>
+          </div>
+          <div class="arm-tags">${armTags}</div>
+          <div class="chevron">▸</div>
+        </div>
+        <div class="level-body">
+          ${armRows}
+          <div class="add-arm-row">
+            <input type="text" placeholder="New arm name, e.g. D" id="armInput-${idx}">
+            <button onclick="addArm(${idx}, event)">Add arm</button>
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  function toggleLevel(idx){
+    openLevelIndex = (openLevelIndex === idx) ? -1 : idx;
+    renderLevels();
+  }
+  function addArm(idx, e){
+    e.stopPropagation();
+    const input = document.getElementById('armInput-' + idx);
+    const val = input.value.trim();
+    if(!val) return;
+    levels[idx].arms.push(val.toUpperCase());
+    openLevelIndex = idx;
+    renderLevels();
+  }
+  function removeArm(idx, armIdx, e){
+    e.stopPropagation();
+    levels[idx].arms.splice(armIdx, 1);
+    openLevelIndex = idx;
+    renderLevels();
+  }
+  function showAddLevelInput(){
+    document.getElementById('addLevelCard').style.display = 'none';
+    document.getElementById('addLevelInputRow').style.display = 'flex';
+    document.getElementById('newLevelInput2').focus();
+  }
+  function cancelAddLevel(){
+    document.getElementById('addLevelCard').style.display = 'flex';
+    document.getElementById('addLevelInputRow').style.display = 'none';
+    document.getElementById('newLevelInput2').value = '';
+  }
+  function confirmAddLevel(){
+    const input = document.getElementById('newLevelInput2');
+    const name = input.value.trim();
+    if(!name) return;
+    levels.push({ name, order: levels.length + 1, arms:["A"] });
+    openLevelIndex = levels.length - 1;
+    input.value = '';
+    document.getElementById('addLevelCard').style.display = 'flex';
+    document.getElementById('addLevelInputRow').style.display = 'none';
+    renderLevels();
+  }
+
+  // ===================== Fee Items =====================
+  const classLevels = [
+    "Kindergarten","Nursery 1","Nursery 2","Primary 1","Primary 2","Primary 3",
+    "Primary 4","Primary 5","Primary 6","JSS1","JSS2","JSS3","SS1","SS2","SS3"
+  ];
+
+  let feeItems = [
+    { name:"Admission Form", icon:"✎", type:"oneoff", appliesTo:"new", varyByClass:false, flatPrice:5000, prices:{} },
+    { name:"School Fees", icon:"₦", type:"recurring", appliesTo:"all", varyByClass:true, flatPrice:0,
+      prices:{ "Kindergarten":80000,"Nursery 1":80000,"Nursery 2":85000,"Primary 1":95000,"Primary 2":95000,
+        "Primary 3":100000,"Primary 4":100000,"Primary 5":105000,"Primary 6":105000,"JSS1":120000,"JSS2":120000,
+        "JSS3":125000,"SS1":140000,"SS2":140000,"SS3":150000 } },
+    { name:"Uniform", icon:"⚏", type:"oneoff", appliesTo:"all", varyByClass:true, flatPrice:0,
+      prices:{ "Kindergarten":15000,"Nursery 1":15000,"Nursery 2":15000,"Primary 1":18000,"Primary 2":18000,
+        "Primary 3":18000,"Primary 4":18000,"Primary 5":18000,"Primary 6":18000,"JSS1":20000,"JSS2":20000,
+        "JSS3":20000,"SS1":22000,"SS2":22000,"SS3":22000 } },
+    { name:"Sportwear", icon:"⚽", type:"oneoff", appliesTo:"all", varyByClass:false, flatPrice:8000, prices:{} },
+  ];
+  let openFeeIndex = 1;
+
+  function renderFees(){
+    const list = document.getElementById('feeList');
+    list.innerHTML = '';
+    feeItems.forEach((fee, idx) => {
+      const card = document.createElement('div');
+      card.className = 'fee-card' + (openFeeIndex === idx ? ' open' : '');
+
+      const priceSection = fee.varyByClass
+        ? `<div class="price-table">
+            ${classLevels.map(lvl => `
+              <div class="price-row">
+                <div class="lvl">${lvl}</div>
+                <span class="cur">₦</span>
+                <input type="number" value="${fee.prices[lvl] ?? 0}" onchange="setClassPrice(${idx}, '${lvl}', this.value)">
+              </div>
+            `).join('')}
+           </div>`
+        : `<div class="flat-price"><span>₦</span><input type="number" value="${fee.flatPrice}" onchange="setFlatPrice(${idx}, this.value)"></div>`;
+
+      card.innerHTML = `
+        <div class="fee-head" onclick="toggleFee(${idx})">
+          <div class="fee-icon">${fee.icon}</div>
+          <div class="fee-title">
+            <div class="name">${fee.name}</div>
+            <div class="sub">${fee.varyByClass ? 'Price varies by class level' : '₦' + fee.flatPrice.toLocaleString() + ' flat'}</div>
+          </div>
+          <div class="badge-row">
+            <div class="badge ${fee.type === 'oneoff' ? 'oneoff' : 'recurring'}">${fee.type === 'oneoff' ? 'ONE-OFF' : 'PER TERM'}</div>
+            <div class="badge ${fee.appliesTo === 'new' ? 'new' : 'all'}">${fee.appliesTo === 'new' ? 'NEW STUDENTS' : 'ALL STUDENTS'}</div>
+          </div>
+          <div class="chevron">▸</div>
+        </div>
+        <div class="fee-body">
+          <div class="settings-row">
+            <div class="setting-group">
+              <label class="group-label">Charge type</label>
+              <div class="segmented">
+                <div class="${fee.type === 'oneoff' ? 'sel' : ''}" onclick="setType(${idx}, 'oneoff', event)">One-off</div>
+                <div class="${fee.type === 'recurring' ? 'sel' : ''}" onclick="setType(${idx}, 'recurring', event)">Per term</div>
+              </div>
+            </div>
+            <div class="setting-group">
+              <label class="group-label">Applies to</label>
+              <div class="segmented">
+                <div class="${fee.appliesTo === 'all' ? 'sel' : ''}" onclick="setAppliesTo(${idx}, 'all', event)">All students</div>
+                <div class="${fee.appliesTo === 'new' ? 'sel' : ''}" onclick="setAppliesTo(${idx}, 'new', event)">New students only</div>
+              </div>
+            </div>
+          </div>
+
+          <label class="group-label">Pricing</label>
+          <div class="price-mode-toggle">
+            <input type="checkbox" id="vary-${idx}" ${fee.varyByClass ? 'checked' : ''} onchange="toggleVary(${idx}, this.checked)">
+            <label for="vary-${idx}">Price varies by class level</label>
+          </div>
+          ${priceSection}
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  function toggleFee(idx){ openFeeIndex = (openFeeIndex === idx) ? -1 : idx; renderFees(); }
+  function setType(idx, val, e){ e.stopPropagation(); feeItems[idx].type = val; openFeeIndex = idx; renderFees(); }
+  function setAppliesTo(idx, val, e){ e.stopPropagation(); feeItems[idx].appliesTo = val; openFeeIndex = idx; renderFees(); }
+  function toggleVary(idx, checked){
+    feeItems[idx].varyByClass = checked;
+    if(checked){
+      classLevels.forEach(lvl => { if(!(lvl in feeItems[idx].prices)) feeItems[idx].prices[lvl] = feeItems[idx].flatPrice || 0; });
+    }
+    openFeeIndex = idx; renderFees();
+  }
+  function setFlatPrice(idx, val){ feeItems[idx].flatPrice = parseInt(val) || 0; openFeeIndex = idx; renderFees(); }
+  function setClassPrice(idx, lvl, val){ feeItems[idx].prices[lvl] = parseInt(val) || 0; openFeeIndex = idx; renderFees(); }
+  function showAddFeeInput(){
+    document.getElementById('addFeeCard').style.display = 'none';
+    document.getElementById('addFeeInputRow').style.display = 'flex';
+    document.getElementById('newFeeInput').focus();
+  }
+  function cancelAddFeeItem(){
+    document.getElementById('addFeeCard').style.display = 'flex';
+    document.getElementById('addFeeInputRow').style.display = 'none';
+    document.getElementById('newFeeInput').value = '';
+  }
+  function confirmAddFeeItem(){
+    const input = document.getElementById('newFeeInput');
+    const name = input.value.trim();
+    if(!name) return;
+    feeItems.push({ name, icon:"₦", type:"oneoff", appliesTo:"all", varyByClass:false, flatPrice:0, prices:{} });
+    openFeeIndex = feeItems.length - 1;
+    input.value = '';
+    document.getElementById('addFeeCard').style.display = 'flex';
+    document.getElementById('addFeeInputRow').style.display = 'none';
+    renderFees();
+  }
+
+  // ===================== Shared =====================
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  renderLevels();
+  renderFees();
+</script>
+
+</body>
+</html>

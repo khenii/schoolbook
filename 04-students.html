@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Schoolbook — Students</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16233D; --slate:#2F4468; --slate-soft:#5B6E90;
+    --gold:#B98B3E; --gold-soft:#E4C88A;
+    --paper:#F4F5F8; --paper-card:#FFFFFF; --line:#DCE0E9;
+    --success:#3A7D5C; --success-bg:#E9F3EE;
+    --rust:#B84C3E; --rust-bg:#FBEBE9;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink); display:flex; min-height:100vh; -webkit-font-smoothing:antialiased; }
+
+  /* ---------- SIDEBAR (shared shell) ---------- */
+  .sidebar{ width:230px; flex-shrink:0; background:var(--ink); color:#fff; display:flex; flex-direction:column; padding:22px 16px; }
+  .brand{ display:flex; align-items:center; gap:10px; padding:0 6px 24px; }
+  .brand-mark{ width:30px; height:30px; border:1.5px solid var(--gold-soft); border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:700; font-size:14px; color:var(--gold-soft); flex-shrink:0; }
+  .brand-name{ font-family:'Source Serif 4', serif; font-weight:600; font-size:16.5px; }
+  .nav-section-label{ font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#7C89A6; padding:14px 10px 8px; }
+  .nav-item{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px; font-size:13.5px; font-weight:500; color:#C4CCDE; cursor:pointer; margin-bottom:2px; transition:background .12s ease, color .12s ease; text-decoration:none; }
+  .nav-item:hover{ background:rgba(255,255,255,0.06); color:#fff; }
+  .nav-item.active{ background:var(--slate); color:#fff; font-weight:600; }
+  .nav-icon{ width:16px; text-align:center; font-size:13px; flex-shrink:0; }
+  .nav-item.disabled{ opacity:0.42; cursor:default; pointer-events:none; }
+  .sidebar-foot{ margin-top:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:14px; display:flex; align-items:center; gap:9px; }
+  .school-avatar{ width:30px; height:30px; border-radius:8px; background:var(--slate); display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:600; font-size:13px; }
+  .school-meta{ line-height:1.3; }
+  .school-meta .name{ font-size:12.5px; font-weight:600; }
+  .school-meta .role{ font-size:10.5px; color:#8895AF; }
+
+  /* ---------- MAIN ---------- */
+  .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .topbar{ height:64px; flex-shrink:0; background:var(--paper-card); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; padding:0 28px; }
+  .topbar h1{ font-family:'Source Serif 4', serif; font-size:19px; font-weight:600; }
+  .session-pill{ display:flex; align-items:center; gap:8px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:600; color:var(--slate); font-family:'IBM Plex Mono', monospace; }
+  .session-pill .dot{ width:6px; height:6px; border-radius:50%; background:var(--success); }
+
+  .content{ padding:28px 32px 60px; overflow-y:auto; }
+  .page-head{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:20px; }
+  .page-head .eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--slate-soft); margin-bottom:6px; }
+  .page-head h2{ font-family:'Source Serif 4', serif; font-size:24px; font-weight:600; }
+  .page-head p{ font-size:13px; color:var(--slate-soft); margin-top:4px; max-width:480px; }
+
+  .btn-primary{ padding:10px 16px; background:var(--ink); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:background .15s ease; white-space:nowrap; }
+  .btn-primary:hover{ background:var(--slate); }
+
+  /* filter bar */
+  .filter-bar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .filter-bar select, .filter-bar input{
+    padding:9px 12px; border:1px solid var(--line); border-radius:8px;
+    font-size:12.5px; font-family:'Inter', sans-serif; background:var(--paper-card);
+    color:var(--ink); outline:none;
+  }
+  .filter-bar select:focus, .filter-bar input:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+  .filter-bar input{ flex:1; min-width:180px; }
+  .inactive-toggle{ display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:var(--slate-soft); white-space:nowrap; cursor:pointer; padding:0 4px; }
+  .inactive-toggle input{ width:15px; height:15px; accent-color:var(--slate); cursor:pointer; }
+  .lifecycle-tag{ font-family:'IBM Plex Mono', monospace; font-size:9.5px; font-weight:700; padding:2px 6px; border-radius:5px; margin-left:6px; background:#EAEDF3; color:var(--slate-soft); }
+  .result-count{ font-size:12px; color:var(--slate-soft); margin-bottom:12px; font-family:'IBM Plex Mono', monospace; }
+
+  /* student table */
+  .table-wrap{ background:var(--paper-card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .t-row{ display:flex; align-items:center; padding:12px 18px; border-bottom:1px solid var(--line); font-size:13px; }
+  .t-row:last-child{ border-bottom:none; }
+  .t-row.head{ background:var(--paper); font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--slate-soft); font-weight:600; padding:10px 18px; }
+  .t-row:not(.head):hover{ background:#FAFBFC; }
+  .col-avatar{ width:36px; flex-shrink:0; }
+  .avatar{ width:30px; height:30px; border-radius:8px; background:var(--paper); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:600; font-size:12.5px; color:var(--slate); }
+  .col-name{ flex:2.4; min-width:0; }
+  .col-name .full{ font-weight:600; }
+  .col-name .adm{ font-size:11px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; margin-top:1px; }
+  .col-status{ flex:1.1; }
+  .col-class{ flex:1.3; }
+  .col-action{ flex:0.8; text-align:right; }
+  .status-tag{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; font-weight:600; padding:3px 8px; border-radius:6px; }
+  .status-tag.new{ background:#FCF3E3; color:var(--gold); }
+  .status-tag.existing{ background:var(--success-bg); color:var(--success); }
+  .class-tag{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--slate); background:var(--paper); border:1px solid var(--line); padding:3px 8px; border-radius:6px; }
+  .view-link{ font-size:12px; font-weight:600; color:var(--slate); cursor:pointer; }
+  .view-link:hover{ color:var(--ink); text-decoration:underline; }
+
+  .empty-note{ padding:40px 20px; text-align:center; color:var(--slate-soft); font-size:13px; }
+
+  .pagination-bar{ display:flex; align-items:center; justify-content:center; gap:6px; margin-top:16px; flex-wrap:wrap; }
+  .page-btn{ min-width:32px; height:32px; padding:0 10px; border:1px solid var(--line); background:var(--paper-card); border-radius:7px; font-size:12.5px; font-weight:600; color:var(--slate); cursor:pointer; font-family:'IBM Plex Mono', monospace; }
+  .page-btn:hover:not(:disabled){ background:var(--paper); }
+  .page-btn.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .page-btn:disabled{ opacity:0.4; cursor:default; }
+  .page-ellipsis{ color:var(--slate-soft); font-size:12.5px; padding:0 4px; }
+
+  /* ---------- SLIDE-OVER PANEL ---------- */
+  .overlay{ position:fixed; inset:0; background:rgba(22,35,61,0.35); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:20; }
+  .overlay.show{ opacity:1; pointer-events:auto; }
+  .panel{
+    position:fixed; top:0; right:0; bottom:0; width:420px; max-width:92vw;
+    background:var(--paper-card); box-shadow:-8px 0 30px rgba(22,35,61,0.15);
+    transform:translateX(100%); transition:transform .25s ease;
+    z-index:21; display:flex; flex-direction:column;
+  }
+  .panel.show{ transform:translateX(0); }
+  .panel-head{ padding:22px 24px 16px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:flex-start; }
+  .panel-head h3{ font-family:'Source Serif 4', serif; font-size:19px; font-weight:600; }
+  .panel-head p{ font-size:12.5px; color:var(--slate-soft); margin-top:4px; }
+  .panel-close{ cursor:pointer; color:var(--slate-soft); font-size:16px; padding:2px 6px; }
+  .panel-close:hover{ color:var(--ink); }
+  .panel-body{ padding:20px 24px; overflow-y:auto; flex:1; }
+  .panel-foot{ padding:16px 24px 22px; border-top:1px solid var(--line); }
+
+  .field{ margin-bottom:15px; }
+  .field label{ display:block; font-size:12px; font-weight:600; color:var(--slate); margin-bottom:6px; }
+  .field input, .field select{
+    width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px;
+    font-size:13px; font-family:'Inter', sans-serif; color:var(--ink); background:var(--paper-card); outline:none;
+  }
+  .field input:focus, .field select:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+  .field-row{ display:flex; gap:12px; }
+  .field-row .field{ flex:1; }
+
+  .status-toggle{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .status-toggle div{ flex:1; text-align:center; padding:9px 0; font-size:12.5px; font-weight:600; color:var(--slate-soft); cursor:pointer; }
+  .status-toggle div.sel-new{ background:#FCF3E3; color:var(--gold); }
+  .status-toggle div.sel-existing{ background:var(--success-bg); color:var(--success); }
+  .status-toggle div:first-child{ border-right:1px solid var(--line); }
+
+  .divider-label{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--slate-soft); margin:20px 0 10px; padding-top:14px; border-top:1px solid var(--line); }
+
+  /* guardian match / create */
+  .guardian-card{ border-radius:10px; padding:13px 15px; margin-bottom:16px; font-size:12.5px; line-height:1.55; }
+  .guardian-card.match{ background:var(--success-bg); border:1px solid var(--success); }
+  .guardian-card.new{ background:var(--paper); border:1px solid var(--line); }
+  .guardian-card .gtitle{ font-weight:700; margin-bottom:6px; }
+  .guardian-card.match .gtitle{ color:var(--success); }
+  .guardian-card.new .gtitle{ color:var(--slate); }
+  .guardian-siblings{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .guardian-siblings .chip{ font-size:11px; font-family:'IBM Plex Mono', monospace; background:var(--paper-card); border:1px solid var(--line); color:var(--slate); padding:3px 8px; border-radius:6px; }
+  .link-toggle{ display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .link-toggle input{ width:15px; height:15px; accent-color:var(--success); }
+  .link-toggle label{ font-size:12px; font-weight:600; color:var(--slate); cursor:pointer; }
+  .guardian-name-field{ margin-top:10px; }
+  .guardian-name-field label{ display:block; font-size:11.5px; font-weight:600; color:var(--slate); margin-bottom:5px; }
+  .guardian-name-field input{ width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:7px; font-size:12.5px; outline:none; }
+  .guardian-name-field input:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+
+  .charge-preview{ border:1px solid var(--line); border-radius:9px; overflow:hidden; }
+  .charge-row{ display:flex; justify-content:space-between; align-items:center; padding:9px 12px; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .charge-row:last-child{ border-bottom:none; }
+  .charge-row .cname{ font-weight:500; }
+  .charge-row .ctag{ font-size:10px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; }
+  .charge-row .camt{ font-family:'IBM Plex Mono', monospace; font-weight:600; color:var(--slate); }
+  .charge-total{ display:flex; justify-content:space-between; padding:11px 12px; background:var(--paper); font-size:13px; font-weight:700; }
+  .charge-empty{ padding:16px 12px; text-align:center; font-size:12px; color:var(--slate-soft); }
+
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:11px 20px; border-radius:8px; font-size:12.5px; font-weight:500; opacity:0; pointer-events:none; transition:all .25s ease; z-index:99; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand"><div class="brand-mark">S</div><div class="brand-name">Schoolbook</div></div>
+    <div class="nav-section-label">Overview</div>
+    <a class="nav-item" href="06-dashboard.html"><span class="nav-icon">◧</span>Dashboard</a>
+    <div class="nav-section-label">Records</div>
+    <div class="nav-item active"><span class="nav-icon">☺</span>Students</div>
+    <a class="nav-item" href="07-payments.html"><span class="nav-icon">✎</span>Payments</a>
+    <a class="nav-item" href="10-class-register.html"><span class="nav-icon">▤</span>Class Register</a>
+    <a class="nav-item" href="11-promotion.html"><span class="nav-icon">↑</span>Promotion</a>
+    <a class="nav-item" href="08-reports.html"><span class="nav-icon">▦</span>Reports</a>
+    <div class="nav-section-label">Configuration</div>
+    <a class="nav-item" href="09-settings.html"><span class="nav-icon">⚙</span>Settings</a>
+    <a class="nav-item" href="12-audit-log.html"><span class="nav-icon">🕐</span>Audit Log</a>
+    <div class="sidebar-foot">
+      <div class="school-avatar">B</div>
+      <div class="school-meta"><div class="name">Bright Path College</div><div class="role">Admin</div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h1>Students</h1>
+      <div class="session-pill"><span class="dot"></span>2025/2026 · Term 1</div>
+    </div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <div class="eyebrow">Records</div>
+          <h2>Student roster</h2>
+          <p>Search or filter by class, or add a new student — charges are generated automatically based on the fee items you configured.</p>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <a class="btn-ghost" href="10-class-register.html" style="text-decoration:none; padding:10px 16px; background:var(--paper-card); color:var(--slate); border:1px solid var(--line); border-radius:8px; font-size:13px; font-weight:600;">View by class →</a>
+          <button class="btn-ghost" onclick="exportStudents()">Export CSV</button>
+          <button class="btn-primary" onclick="openPanel()">+ Add student</button>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <select id="filterLevel" onchange="onFilterLevelChange(); onFilterChange();"></select>
+        <select id="filterArm" onchange="onFilterChange()"></select>
+        <select id="filterStatus" onchange="onFilterChange()">
+          <option value="all">All statuses</option>
+          <option value="new">New</option>
+          <option value="existing">Existing</option>
+        </select>
+        <input type="text" id="searchInput" placeholder="Search by name, admission number, or guardian phone…" oninput="onSearchInput()">
+        <label class="inactive-toggle">
+          <input type="checkbox" id="showInactive" onchange="onFilterChange()">
+          Show withdrawn/graduated
+        </label>
+      </div>
+
+      <div class="result-count" id="resultCount"></div>
+
+      <div class="table-wrap">
+        <div class="t-row head">
+          <div class="col-avatar"></div>
+          <div class="col-name">Student</div>
+          <div class="col-status">Status</div>
+          <div class="col-class">Class</div>
+          <div class="col-action"></div>
+        </div>
+        <div id="studentTableBody"></div>
+      </div>
+
+      <div class="pagination-bar" id="paginationBar"></div>
+    </div>
+  </div>
+
+  <!-- ADD STUDENT PANEL -->
+  <div class="overlay" id="overlay" onclick="closePanel()"></div>
+  <div class="panel" id="panel">
+    <div class="panel-head">
+      <div>
+        <h3>Add student</h3>
+        <p>Charges below update automatically as you set status and class.</p>
+      </div>
+      <div class="panel-close" onclick="closePanel()">✕</div>
+    </div>
+    <div class="panel-body">
+      <div class="field">
+        <label>Full name</label>
+        <input type="text" id="pName" placeholder="e.g. Adaeze Okafor">
+      </div>
+      <div class="field">
+        <label>Admission number</label>
+        <input type="text" id="pAdm" placeholder="e.g. BPC-0142">
+      </div>
+
+      <div class="field">
+        <label>Guardian phone number</label>
+        <input type="text" id="pGuardianPhone" placeholder="Start typing — we'll check for siblings already enrolled…" oninput="checkGuardianMatch()">
+      </div>
+      <div id="guardianResult"></div>
+
+      <div class="field">
+        <label>Status</label>
+        <div class="status-toggle">
+          <div id="statusNewBtn" class="sel-new" onclick="setStatus('new')">New student</div>
+          <div id="statusExistingBtn" onclick="setStatus('existing')">Existing student</div>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Class level</label>
+          <select id="pLevel" onchange="onLevelChange()"></select>
+        </div>
+        <div class="field">
+          <label>Arm</label>
+          <select id="pArm" onchange="updateChargePreview()"></select>
+        </div>
+      </div>
+
+      <div class="divider-label">Charges generated for this term</div>
+      <div class="charge-preview" id="chargePreview"></div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn-primary" style="width:100%;" onclick="saveStudent()">Add student &amp; generate charges</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Saved</div>
+
+<script>
+  // ---- shared demo config (mirrors Classes & Arms / Fee Items screens) ----
+  const classData = [
+    { name:"Kindergarten", arms:["A"] },
+    { name:"Nursery 1", arms:["A"] },
+    { name:"Nursery 2", arms:["A"] },
+    { name:"Primary 1", arms:["A","B"] },
+    { name:"Primary 2", arms:["A","B"] },
+    { name:"Primary 3", arms:["A"] },
+    { name:"Primary 4", arms:["A"] },
+    { name:"Primary 5", arms:["A"] },
+    { name:"Primary 6", arms:["A"] },
+    { name:"JSS1", arms:["A","B"] },
+    { name:"JSS2", arms:["A","B"] },
+    { name:"JSS3", arms:["A"] },
+    { name:"SS1", arms:["A","B"] },
+    { name:"SS2", arms:["A","B"] },
+    { name:"SS3", arms:["A","B","C"] },
+  ];
+
+  const feeItems = [
+    { name:"Admission Form", type:"oneoff", appliesTo:"new", varyByClass:false, flatPrice:5000, prices:{} },
+    { name:"School Fees", type:"recurring", appliesTo:"all", varyByClass:true, flatPrice:0,
+      prices:{ "Kindergarten":80000,"Nursery 1":80000,"Nursery 2":85000,"Primary 1":95000,"Primary 2":95000,
+        "Primary 3":100000,"Primary 4":100000,"Primary 5":105000,"Primary 6":105000,"JSS1":120000,"JSS2":120000,
+        "JSS3":125000,"SS1":140000,"SS2":140000,"SS3":150000 } },
+    { name:"Uniform", type:"oneoff", appliesTo:"all", varyByClass:true, flatPrice:0,
+      prices:{ "Kindergarten":15000,"Nursery 1":15000,"Nursery 2":15000,"Primary 1":18000,"Primary 2":18000,
+        "Primary 3":18000,"Primary 4":18000,"Primary 5":18000,"Primary 6":18000,"JSS1":20000,"JSS2":20000,
+        "JSS3":20000,"SS1":22000,"SS2":22000,"SS3":22000 } },
+    { name:"Sportwear", type:"oneoff", appliesTo:"all", varyByClass:false, flatPrice:8000, prices:{} },
+  ];
+
+  function priceFor(fee, level){ return fee.varyByClass ? (fee.prices[level] ?? 0) : fee.flatPrice; }
+
+  // ---- demo student roster ----
+  let students = [
+    { name:"Adaeze Okafor", adm:"BPC-0091", status:"existing", level:"SS3", arm:"A", phone:"0803 221 9087", lifecycle:"active" },
+    { name:"Chidi Okafor", adm:"BPC-0092", status:"existing", level:"Primary 5", arm:"A", phone:"0803 221 9087", lifecycle:"active" },
+    { name:"Ngozi Okafor", adm:"BPC-0093", status:"existing", level:"Primary 1", arm:"A", phone:"0803 221 9087", lifecycle:"active" },
+    { name:"Chinedu Bassey", adm:"BPC-0102", status:"existing", level:"SS3", arm:"A", phone:"0806 552 1103", lifecycle:"graduated" },
+    { name:"Fatima Sule", adm:"BPC-0140", status:"new", level:"SS3", arm:"B", phone:"0701 884 2290", lifecycle:"active" },
+    { name:"Emeka Nwosu", adm:"BPC-0031", status:"existing", level:"JSS2", arm:"A", phone:"0812 003 7765", lifecycle:"active" },
+    { name:"Blessing Etim", adm:"BPC-0141", status:"new", level:"Primary 4", arm:"A", phone:"0909 441 8820", lifecycle:"active" },
+  ];
+
+  // Generate additional demo students so pagination/search reflect a
+  // realistic school size (~480 students) rather than a handful. In the
+  // real app this data comes from the backend, paginated server-side —
+  // this generator exists purely so the prototype behaves at scale.
+  (function generateDemoRoster(){
+    const firstNames = ["Chioma","Tunde","Aisha","Segun","Ifeoma","Kelechi","Amaka","Yusuf","Grace","Musa",
+      "Ronke","Uche","Halima","Obinna","Funmi","Bashir","Ngozi","Femi","Zainab","Chidinma",
+      "Kayode","Precious","Ibrahim","Adaobi","Emeka","Rita","Suleiman","Blessing","Wale","Faith"];
+    const lastNames = ["Adewale","Okonkwo","Bello","Chukwu","Balogun","Nwosu","Danladi","Effiong","Umeh","Sanni",
+      "Igwe","Yakubu","Eze","Adeyemi","Bakare","Etim","Musa","Obi","Ayinde","Danjuma"];
+    let counter = 200;
+    classData.forEach(cls => {
+      cls.arms.forEach(arm => {
+        const count = 8 + Math.floor(Math.random() * 10); // 8–17 per arm
+        for(let i = 0; i < count; i++){
+          counter++;
+          const fn = firstNames[Math.floor(Math.random()*firstNames.length)];
+          const ln = lastNames[Math.floor(Math.random()*lastNames.length)];
+          const phoneNum = "0" + (700 + Math.floor(Math.random()*200)) + " " + (100 + Math.floor(Math.random()*900)) + " " + (1000 + Math.floor(Math.random()*9000));
+          students.push({
+            name: `${fn} ${ln}`,
+            adm: `BPC-${counter}`,
+            status: Math.random() < 0.12 ? 'new' : 'existing',
+            level: cls.name,
+            arm: arm,
+            phone: phoneNum,
+            lifecycle: Math.random() < 0.04 ? 'withdrawn' : 'active'
+          });
+        }
+      });
+    });
+  })();
+
+  // ---- filter dropdowns ----
+  function populateLevelSelect(sel, includeAll){
+    sel.innerHTML = (includeAll ? '<option value="all">All classes</option>' : '') +
+      classData.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+  }
+  function populateArmSelect(sel, levelName, includeAll){
+    const lvl = classData.find(c => c.name === levelName);
+    const arms = lvl ? lvl.arms : [];
+    sel.innerHTML = (includeAll ? '<option value="all">All arms</option>' : '') +
+      arms.map(a => `<option value="${a}">${a}</option>`).join('');
+  }
+
+  function onFilterLevelChange(){
+    const level = document.getElementById('filterLevel').value;
+    populateArmSelect(document.getElementById('filterArm'), level === 'all' ? classData[14].name : level, true);
+  }
+
+  // ---- table rendering ----
+  function digitsOnly(s){ return (s || '').replace(/\D/g, ''); }
+
+  function exportToCSV(filename, headers, rows){
+    const escape = v => `"${String(v).replace(/"/g,'""')}"`;
+    const csv = [headers.map(escape).join(',')]
+      .concat(rows.map(r => r.map(escape).join(',')))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportStudents(){
+    // Exports the full filtered set (all matching pages), not just the
+    // page currently visible on screen.
+    const level = document.getElementById('filterLevel').value;
+    const arm = document.getElementById('filterArm').value;
+    const status = document.getElementById('filterStatus').value;
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const qDigits = digitsOnly(q);
+    const showInactive = document.getElementById('showInactive').checked;
+
+    const filtered = students.filter(s => {
+      if(!showInactive && s.lifecycle !== 'active') return false;
+      if(level !== 'all' && s.level !== level) return false;
+      if(arm !== 'all' && s.arm !== arm) return false;
+      if(status !== 'all' && s.status !== status) return false;
+      if(q){
+        const matchesName = s.name.toLowerCase().includes(q);
+        const matchesAdm = s.adm.toLowerCase().includes(q);
+        const matchesPhone = qDigits.length >= 3 && digitsOnly(s.phone).includes(qDigits);
+        if(!matchesName && !matchesAdm && !matchesPhone) return false;
+      }
+      return true;
+    });
+
+    exportToCSV(
+      `students-export-2026-07-14.csv`,
+      ['Name', 'Admission No', 'Status', 'Class Level', 'Arm', 'Guardian Phone', 'Lifecycle'],
+      filtered.map(s => [s.name, s.adm, s.status, s.level, s.arm, s.phone, s.lifecycle])
+    );
+  }
+
+  function checkGuardianMatch(){
+    const phoneRaw = document.getElementById('pGuardianPhone').value;
+    const phone = digitsOnly(phoneRaw);
+    const box = document.getElementById('guardianResult');
+
+    if(phone.length < 6){
+      box.innerHTML = '';
+      return;
+    }
+
+    // Search existing students for a matching guardian phone number —
+    // this is what "finds the household" in a real system.
+    const matches = students.filter(s => s.phone && digitsOnly(s.phone) === phone);
+
+    if(matches.length > 0){
+      const siblingChips = matches.map(s => `<span class="chip">${s.name} · ${s.level} ${s.arm}</span>`).join('');
+      box.innerHTML = `
+        <div class="guardian-card match">
+          <div class="gtitle">✓ Existing household found</div>
+          This phone number matches ${matches.length} student${matches.length > 1 ? 's' : ''} already enrolled — likely sibling${matches.length > 1 ? 's' : ''}.
+          <div class="guardian-siblings">${siblingChips}</div>
+          <div class="link-toggle">
+            <input type="checkbox" id="linkHousehold" checked>
+            <label for="linkHousehold">Link this student to the same household</label>
+          </div>
+        </div>
+      `;
+    } else {
+      box.innerHTML = `
+        <div class="guardian-card new">
+          <div class="gtitle">No existing household found for this number</div>
+          A new guardian record will be created and linked to this student automatically when you save.
+          <div class="guardian-name-field">
+            <label>Guardian full name</label>
+            <input type="text" id="pGuardianName" placeholder="e.g. Mr. &amp; Mrs. Bakare">
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  function initials(name){
+    return name.split(' ').map(p => p[0]).slice(0,2).join('').toUpperCase();
+  }
+
+  let currentPage = 1;
+  const pageSize = 15;
+  let searchDebounce = null;
+
+  function onSearchInput(){
+    clearTimeout(searchDebounce);
+    // Simulates a debounced server-side search — avoids firing a query on
+    // every keystroke once this is backed by a real, indexed database.
+    searchDebounce = setTimeout(() => { currentPage = 1; renderTable(); }, 220);
+  }
+
+  function onFilterChange(){
+    currentPage = 1;
+    renderTable();
+  }
+
+  function renderTable(){
+    const level = document.getElementById('filterLevel').value;
+    const arm = document.getElementById('filterArm').value;
+    const status = document.getElementById('filterStatus').value;
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const qDigits = digitsOnly(q);
+    const showInactive = document.getElementById('showInactive').checked;
+
+    const filtered = students.filter(s => {
+      if(!showInactive && s.lifecycle !== 'active') return false;
+      if(level !== 'all' && s.level !== level) return false;
+      if(arm !== 'all' && s.arm !== arm) return false;
+      if(status !== 'all' && s.status !== status) return false;
+      if(q){
+        const matchesName = s.name.toLowerCase().includes(q);
+        const matchesAdm = s.adm.toLowerCase().includes(q);
+        const matchesPhone = qDigits.length >= 3 && digitsOnly(s.phone).includes(qDigits);
+        if(!matchesName && !matchesAdm && !matchesPhone) return false;
+      }
+      return true;
+    });
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if(currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * pageSize;
+    const pageItems = filtered.slice(start, start + pageSize);
+
+    const rangeStart = filtered.length === 0 ? 0 : start + 1;
+    const rangeEnd = Math.min(start + pageSize, filtered.length);
+    document.getElementById('resultCount').textContent =
+      `Showing ${rangeStart}–${rangeEnd} of ${filtered.length} student${filtered.length !== 1 ? 's' : ''}`;
+
+    const body = document.getElementById('studentTableBody');
+    if(filtered.length === 0){
+      body.innerHTML = `<div class="empty-note">No students match this filter yet.</div>`;
+      document.getElementById('paginationBar').innerHTML = '';
+      return;
+    }
+    body.innerHTML = pageItems.map(s => `
+      <div class="t-row">
+        <div class="col-avatar"><div class="avatar">${initials(s.name)}</div></div>
+        <div class="col-name">
+          <div class="full">${s.name}</div>
+          <div class="adm">${s.adm}</div>
+        </div>
+        <div class="col-status"><span class="status-tag ${s.status}">${s.status === 'new' ? 'NEW' : 'EXISTING'}</span>${s.lifecycle !== 'active' ? `<span class="lifecycle-tag">${s.lifecycle.toUpperCase()}</span>` : ''}</div>
+        <div class="col-class"><span class="class-tag">${s.level} ${s.arm}</span></div>
+        <div class="col-action"><a class="view-link" href="05-student-profile.html" style="text-decoration:none;">View →</a></div>
+      </div>
+    `).join('');
+
+    renderPagination(totalPages);
+  }
+
+  function renderPagination(totalPages){
+    const bar = document.getElementById('paginationBar');
+    if(totalPages <= 1){ bar.innerHTML = ''; return; }
+
+    // Compact page-number window (current ± 2) so this stays usable even
+    // with a very large roster — we never render a button per page.
+    let pages = [];
+    for(let p = 1; p <= totalPages; p++){
+      if(p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2) pages.push(p);
+      else if(pages[pages.length-1] !== '…') pages.push('…');
+    }
+
+    bar.innerHTML = `
+      <button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="goToPage(${currentPage - 1})">← Prev</button>
+      ${pages.map(p => p === '…'
+        ? `<span class="page-ellipsis">…</span>`
+        : `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`
+      ).join('')}
+      <button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">Next →</button>
+    `;
+  }
+
+  function goToPage(p){
+    currentPage = p;
+    renderTable();
+    document.querySelector('.table-wrap').scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+
+  // ---- add-student panel ----
+  let panelStatus = 'new';
+
+  function setStatus(val){
+    panelStatus = val;
+    document.getElementById('statusNewBtn').className = val === 'new' ? 'sel-new' : '';
+    document.getElementById('statusExistingBtn').className = val === 'existing' ? 'sel-existing' : '';
+    updateChargePreview();
+  }
+
+  function onLevelChange(){
+    const level = document.getElementById('pLevel').value;
+    populateArmSelect(document.getElementById('pArm'), level, false);
+    updateChargePreview();
+  }
+
+  function updateChargePreview(){
+    const level = document.getElementById('pLevel').value;
+    const applicable = feeItems.filter(f => f.appliesTo === 'all' || (f.appliesTo === 'new' && panelStatus === 'new'));
+    const box = document.getElementById('chargePreview');
+    if(applicable.length === 0){
+      box.innerHTML = `<div class="charge-empty">No fee items configured yet.</div>`;
+      return;
+    }
+    let total = 0;
+    const rows = applicable.map(f => {
+      const amt = priceFor(f, level);
+      total += amt;
+      return `<div class="charge-row">
+        <div>
+          <div class="cname">${f.name}</div>
+          <div class="ctag">${f.type === 'oneoff' ? 'ONE-OFF' : 'THIS TERM'}</div>
+        </div>
+        <div class="camt">₦${amt.toLocaleString()}</div>
+      </div>`;
+    }).join('');
+    box.innerHTML = rows + `<div class="charge-total"><div>Total charged now</div><div>₦${total.toLocaleString()}</div></div>`;
+  }
+
+  function openPanel(){
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('panel').classList.add('show');
+    populateLevelSelect(document.getElementById('pLevel'), false);
+    document.getElementById('pLevel').value = 'SS3';
+    onLevelChange();
+    setStatus('new');
+    document.getElementById('pName').value = '';
+    document.getElementById('pAdm').value = '';
+    document.getElementById('pGuardianPhone').value = '';
+    document.getElementById('guardianResult').innerHTML = '';
+  }
+  function closePanel(){
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('panel').classList.remove('show');
+  }
+
+  function saveStudent(){
+    const name = document.getElementById('pName').value.trim();
+    const adm = document.getElementById('pAdm').value.trim();
+    const level = document.getElementById('pLevel').value;
+    const arm = document.getElementById('pArm').value;
+    const phone = document.getElementById('pGuardianPhone').value.trim();
+    if(!name || !adm){
+      showToast('Please enter a name and admission number');
+      return;
+    }
+
+    let guardianMsg = '';
+    const linkCheckbox = document.getElementById('linkHousehold');
+    if(phone && linkCheckbox && linkCheckbox.checked){
+      guardianMsg = ' — linked to existing household';
+    } else if(phone){
+      const nameField = document.getElementById('pGuardianName');
+      const guardianName = nameField ? nameField.value.trim() : '';
+      guardianMsg = guardianName ? ` — new household "${guardianName}" created` : ' — new household created';
+    }
+
+    students.unshift({ name, adm, status:panelStatus, level, arm, phone });
+    closePanel();
+    document.getElementById('filterLevel').value = 'all';
+    onFilterLevelChange();
+    document.getElementById('filterArm').value = 'all';
+    document.getElementById('filterStatus').value = 'all';
+    document.getElementById('searchInput').value = '';
+    currentPage = 1;
+    renderTable();
+    showToast(`${name} added — charges generated${guardianMsg}`);
+  }
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  }
+
+  // ---- init ----
+  populateLevelSelect(document.getElementById('filterLevel'), true);
+  populateArmSelect(document.getElementById('filterArm'), classData[14].name, true);
+  renderTable();
+</script>
+
+</body>
+</html>

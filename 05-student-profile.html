@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Schoolbook — Student Profile</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16233D; --slate:#2F4468; --slate-soft:#5B6E90;
+    --gold:#B98B3E; --gold-soft:#E4C88A;
+    --paper:#F4F5F8; --paper-card:#FFFFFF; --line:#DCE0E9;
+    --success:#3A7D5C; --success-bg:#E9F3EE;
+    --rust:#B84C3E; --rust-bg:#FBEBE9;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink); display:flex; min-height:100vh; -webkit-font-smoothing:antialiased; }
+
+  /* ---------- SIDEBAR (shared shell) ---------- */
+  .sidebar{ width:230px; flex-shrink:0; background:var(--ink); color:#fff; display:flex; flex-direction:column; padding:22px 16px; }
+  .brand{ display:flex; align-items:center; gap:10px; padding:0 6px 24px; }
+  .brand-mark{ width:30px; height:30px; border:1.5px solid var(--gold-soft); border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:700; font-size:14px; color:var(--gold-soft); flex-shrink:0; }
+  .brand-name{ font-family:'Source Serif 4', serif; font-weight:600; font-size:16.5px; }
+  .nav-section-label{ font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#7C89A6; padding:14px 10px 8px; }
+  .nav-item{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px; font-size:13.5px; font-weight:500; color:#C4CCDE; cursor:pointer; margin-bottom:2px; transition:background .12s ease, color .12s ease; text-decoration:none; }
+  .nav-item:hover{ background:rgba(255,255,255,0.06); color:#fff; }
+  .nav-item.active{ background:var(--slate); color:#fff; font-weight:600; }
+  .nav-icon{ width:16px; text-align:center; font-size:13px; flex-shrink:0; }
+  .nav-item.disabled{ opacity:0.42; cursor:default; pointer-events:none; }
+  .sidebar-foot{ margin-top:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:14px; display:flex; align-items:center; gap:9px; }
+  .school-avatar{ width:30px; height:30px; border-radius:8px; background:var(--slate); display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:600; font-size:13px; }
+  .school-meta{ line-height:1.3; }
+  .school-meta .name{ font-size:12.5px; font-weight:600; }
+  .school-meta .role{ font-size:10.5px; color:#8895AF; }
+
+  /* ---------- MAIN ---------- */
+  .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .topbar{ height:64px; flex-shrink:0; background:var(--paper-card); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; padding:0 28px; }
+  .crumb{ font-size:13px; color:var(--slate-soft); display:flex; align-items:center; gap:8px; }
+  .crumb a{ color:var(--slate-soft); text-decoration:none; font-weight:600; }
+  .crumb a:hover{ color:var(--ink); }
+  .crumb .cur{ color:var(--ink); font-weight:600; }
+  .session-pill{ display:flex; align-items:center; gap:8px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:600; color:var(--slate); font-family:'IBM Plex Mono', monospace; }
+  .session-pill .dot{ width:6px; height:6px; border-radius:50%; background:var(--success); }
+
+  .content{ padding:28px 32px 60px; overflow-y:auto; }
+
+  /* profile header */
+  .profile-head{ display:flex; gap:18px; align-items:center; margin-bottom:24px; }
+  .big-avatar{ width:64px; height:64px; border-radius:14px; background:var(--ink); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:600; font-size:24px; flex-shrink:0; }
+  .profile-info h2{ font-family:'Source Serif 4', serif; font-size:23px; font-weight:600; margin-bottom:4px; }
+  .profile-meta{ display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--slate-soft); }
+  .status-tag{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; font-weight:600; padding:3px 8px; border-radius:6px; }
+  .status-tag.existing{ background:var(--success-bg); color:var(--success); }
+  .class-tag{ font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--slate); background:var(--paper); border:1px solid var(--line); padding:3px 8px; border-radius:6px; }
+  .profile-actions{ margin-left:auto; display:flex; gap:10px; }
+
+  .btn-primary{ padding:10px 16px; background:var(--ink); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:background .15s ease; white-space:nowrap; }
+  .btn-primary:hover{ background:var(--slate); }
+  .btn-ghost{ padding:10px 16px; background:var(--paper-card); color:var(--slate); border:1px solid var(--line); border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
+  .btn-ghost:hover{ background:var(--paper); }
+
+  /* stat cards */
+  .stat-row{ display:flex; gap:14px; margin-bottom:28px; }
+
+  /* pinned notes */
+  .notes-box{ margin-bottom:22px; }
+  .note-card{ display:flex; gap:12px; background:#FCF3E3; border:1px solid var(--gold-soft); border-radius:10px; padding:13px 16px; margin-bottom:10px; }
+  .note-pin{ font-size:15px; color:var(--gold); flex-shrink:0; line-height:1.4; }
+  .note-body{ flex:1; }
+  .note-text{ font-size:13px; color:var(--ink); line-height:1.5; }
+  .note-meta{ font-size:11px; color:#9A7A3A; font-family:'IBM Plex Mono', monospace; margin-top:5px; }
+  .note-remove{ color:#9A7A3A; cursor:pointer; font-size:13px; flex-shrink:0; }
+  .note-remove:hover{ color:var(--rust); }
+  .add-note-row{ display:flex; gap:8px; }
+  .add-note-row input{ flex:1; padding:9px 12px; border:1px dashed var(--line); border-radius:8px; font-size:12.5px; font-family:'Inter', sans-serif; outline:none; }
+  .add-note-row input:focus{ border-color:var(--gold); border-style:solid; }
+  .add-note-row button{ padding:9px 15px; background:var(--paper); border:1px solid var(--line); border-radius:8px; font-size:12px; font-weight:600; color:var(--slate); cursor:pointer; white-space:nowrap; }
+  .add-note-row button:hover{ background:var(--line); }
+  .no-notes{ font-size:12px; color:var(--slate-soft); padding:2px 0 10px; }
+
+  /* household card */
+  .household-card{ display:flex; align-items:center; gap:14px; background:var(--paper-card); border:1px solid var(--line); border-radius:12px; padding:14px 18px; margin-bottom:22px; }
+  .household-icon{ width:34px; height:34px; border-radius:8px; background:var(--paper); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .household-body{ flex:1; }
+  .household-title{ font-size:12.5px; font-weight:600; color:var(--ink); margin-bottom:4px; }
+  .household-siblings{ display:flex; gap:8px; flex-wrap:wrap; }
+  .sibling-chip{ font-size:11.5px; font-family:'IBM Plex Mono', monospace; background:var(--paper); border:1px solid var(--line); color:var(--slate); padding:4px 9px; border-radius:6px; }
+  .stat-card{ flex:1; background:var(--paper-card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; }
+  .stat-card .label{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--slate-soft); margin-bottom:8px; }
+  .stat-card .value{ font-family:'Source Serif 4', serif; font-size:26px; font-weight:600; }
+  .stat-card.warn{ border-color:var(--rust); background:var(--rust-bg); }
+  .stat-card.warn .value{ color:var(--rust); }
+  .stat-card.warn .label{ color:var(--rust); }
+  .stat-card.ok .value{ color:var(--success); }
+  .stat-card .sub{ font-size:11.5px; color:var(--slate-soft); margin-top:6px; }
+  .stat-card.warn .sub{ color:#9A4438; }
+
+  /* section */
+  .section{ margin-bottom:26px; }
+  .section-title{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .section-title h3{ font-family:'Source Serif 4', serif; font-size:16.5px; font-weight:600; }
+  .section-title p{ font-size:12px; color:var(--slate-soft); margin-top:2px; }
+
+  .arrears-box{ background:var(--paper-card); border:1px solid var(--rust); border-radius:12px; overflow:hidden; }
+  .arrears-banner{ background:var(--rust-bg); padding:10px 16px; font-size:12.5px; color:var(--rust); font-weight:600; display:flex; align-items:center; gap:8px; }
+
+  .table-wrap{ background:var(--paper-card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .t-row{ display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); font-size:13px; gap:10px; }
+  .t-row:last-child{ border-bottom:none; }
+  .t-row.head{ background:var(--paper); font-family:'IBM Plex Mono', monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--slate-soft); font-weight:600; padding:9px 16px; }
+  .col-term{ flex:1.3; }
+  .col-term .t{ font-weight:600; }
+  .col-term .s{ font-size:11px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; }
+  .col-fee{ flex:1.5; font-weight:500; }
+  .col-amt{ flex:0.9; font-family:'IBM Plex Mono', monospace; text-align:right; }
+  .col-status{ flex:0.9; text-align:right; }
+  .bal-tag{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:6px; }
+  .bal-tag.owed{ background:var(--rust-bg); color:var(--rust); }
+  .bal-tag.clear{ background:var(--success-bg); color:var(--success); }
+  .col-action-btn{ flex:0.6; text-align:right; }
+  .mini-btn{ font-size:11.5px; font-weight:600; color:var(--slate); cursor:pointer; }
+  .mini-btn:hover{ text-decoration:underline; }
+
+  .payment-log-row{ display:flex; align-items:center; gap:12px; padding:11px 16px; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .payment-log-row:last-child{ border-bottom:none; }
+  .plog-date{ font-family:'IBM Plex Mono', monospace; color:var(--slate-soft); width:90px; flex-shrink:0; }
+  .plog-desc{ flex:1; }
+  .plog-desc .f{ font-weight:600; }
+  .plog-desc .s{ color:var(--slate-soft); font-size:11px; }
+  .plog-amt{ font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--success); }
+  .plog-method{ font-size:10.5px; color:var(--slate-soft); background:var(--paper); border:1px solid var(--line); padding:3px 8px; border-radius:6px; font-family:'IBM Plex Mono', monospace; }
+
+  #jumpSession{ padding:8px 11px; border:1px solid var(--line); border-radius:8px; font-size:12px; font-family:'Inter', sans-serif; color:var(--slate); background:var(--paper-card); outline:none; }
+  #jumpSession:focus{ border-color:var(--slate); }
+
+  /* history accordion */
+  .session-block{ background:var(--paper-card); border:1px solid var(--line); border-radius:12px; margin-bottom:10px; overflow:hidden; scroll-margin-top:20px; }
+  .session-block.has-arrears{ border-color:var(--rust); }
+  .session-header{ display:flex; align-items:center; gap:12px; padding:13px 16px; cursor:pointer; }
+  .session-chevron{ font-size:11px; color:var(--slate-soft); transition:transform .15s ease; width:12px; }
+  .session-block.open .session-chevron{ transform:rotate(90deg); }
+  .session-title-block{ flex:1; }
+  .session-title-block .s{ font-size:13.5px; font-weight:600; }
+  .session-title-block .c{ font-size:11px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; margin-top:1px; }
+  .session-totals{ display:flex; gap:16px; font-size:12px; }
+  .session-totals .st{ text-align:right; }
+  .session-totals .st .lbl{ font-size:9.5px; color:var(--slate-soft); text-transform:uppercase; font-family:'IBM Plex Mono', monospace; }
+  .session-totals .st .val{ font-family:'IBM Plex Mono', monospace; font-weight:700; margin-top:2px; }
+  .session-bal-tag{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:6px; }
+  .session-bal-tag.owed{ background:var(--rust-bg); color:var(--rust); }
+  .session-bal-tag.clear{ background:var(--success-bg); color:var(--success); }
+
+  .session-body{ display:none; border-top:1px solid var(--line); }
+  .session-block.open .session-body{ display:block; }
+  .term-row{ display:flex; align-items:center; gap:12px; padding:10px 16px 10px 40px; border-bottom:1px solid var(--line); font-size:12.5px; cursor:pointer; }
+  .term-row:last-child{ border-bottom:none; }
+  .term-row:hover{ background:#FAFBFC; }
+  .term-row .tname{ flex:1; font-weight:500; }
+  .term-row .tamt{ font-family:'IBM Plex Mono', monospace; color:var(--slate-soft); width:150px; text-align:right; }
+  .term-row .tbal{ width:90px; text-align:right; }
+  .term-detail{ display:none; padding:10px 16px 14px 40px; background:var(--paper); border-bottom:1px solid var(--line); }
+  .term-row.open + .term-detail{ display:block; }
+  .term-detail .receipt-line{ display:flex; justify-content:space-between; font-size:12px; padding:6px 0; border-bottom:1px dashed var(--line); }
+  .term-detail .receipt-line:last-child{ border-bottom:none; }
+  .term-detail .receipt-line .rf{ color:var(--slate); font-weight:500; }
+  .term-detail .receipt-line .rd{ color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; font-size:11px; }
+  .term-detail .receipt-line .ra{ font-family:'IBM Plex Mono', monospace; font-weight:600; }
+  .term-detail .no-balance-note{ font-size:11.5px; color:var(--slate-soft); }
+
+  /* ---------- SLIDE-OVER PANEL (record payment) ---------- */
+  .overlay{ position:fixed; inset:0; background:rgba(22,35,61,0.35); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:20; }
+  .overlay.show{ opacity:1; pointer-events:auto; }
+  .panel{ position:fixed; top:0; right:0; bottom:0; width:400px; max-width:92vw; background:var(--paper-card); box-shadow:-8px 0 30px rgba(22,35,61,0.15); transform:translateX(100%); transition:transform .25s ease; z-index:21; display:flex; flex-direction:column; }
+  .panel.show{ transform:translateX(0); }
+  .panel-head{ padding:22px 24px 16px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:flex-start; }
+  .panel-head h3{ font-family:'Source Serif 4', serif; font-size:19px; font-weight:600; }
+  .panel-head p{ font-size:12.5px; color:var(--slate-soft); margin-top:4px; }
+  .panel-close{ cursor:pointer; color:var(--slate-soft); font-size:16px; padding:2px 6px; }
+  .panel-close:hover{ color:var(--ink); }
+  .panel-body{ padding:20px 24px; overflow-y:auto; flex:1; }
+  .panel-foot{ padding:16px 24px 22px; border-top:1px solid var(--line); }
+  .field{ margin-bottom:15px; }
+  .field label{ display:block; font-size:12px; font-weight:600; color:var(--slate); margin-bottom:6px; }
+  .field input, .field select{ width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:'Inter', sans-serif; color:var(--ink); background:var(--paper-card); outline:none; }
+  .field input:focus, .field select:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+  .field-row{ display:flex; gap:12px; }
+  .field-row .field{ flex:1; }
+  .allocation-note{ background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:11px 13px; font-size:12px; color:var(--slate-soft); line-height:1.55; margin-top:16px; }
+  .allocation-note b{ color:var(--slate); }
+
+  .writeoff-btn{ font-size:11.5px; font-weight:600; color:var(--gold); cursor:pointer; margin-left:12px; }
+  .writeoff-btn:hover{ text-decoration:underline; }
+  .bal-tag.writtenoff{ background:#FCF3E3; color:var(--gold); }
+
+  .wo-row{ display:flex; align-items:flex-start; gap:12px; padding:13px 16px; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .wo-row:last-child{ border-bottom:none; }
+  .wo-icon{ width:28px; height:28px; border-radius:7px; background:#FCF3E3; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+  .wo-body{ flex:1; }
+  .wo-top{ display:flex; justify-content:space-between; align-items:baseline; }
+  .wo-fee{ font-weight:700; color:var(--ink); }
+  .wo-amt{ font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--gold); }
+  .wo-reason{ font-size:12px; color:var(--slate); margin-top:4px; line-height:1.5; }
+  .wo-meta{ font-size:10.5px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; margin-top:5px; }
+
+  .required-mark{ color:var(--rust); }
+  .field textarea{ width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:'Inter', sans-serif; color:var(--ink); background:var(--paper-card); outline:none; resize:vertical; min-height:70px; }
+  .field textarea:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+  .field-error{ font-size:11.5px; color:var(--rust); margin-top:5px; display:none; }
+
+  .discount-card{ display:flex; align-items:flex-start; gap:12px; background:var(--success-bg); border:1px solid var(--success); border-radius:10px; padding:13px 16px; margin-bottom:10px; }
+  .discount-icon{ width:28px; height:28px; border-radius:7px; background:var(--paper-card); display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+  .discount-body{ flex:1; }
+  .discount-top{ display:flex; justify-content:space-between; align-items:baseline; }
+  .discount-fee{ font-weight:700; color:var(--ink); font-size:12.5px; }
+  .discount-val{ font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--success); font-size:12.5px; }
+  .discount-reason{ font-size:12px; color:var(--slate); margin-top:4px; }
+  .discount-meta{ font-size:10.5px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; margin-top:5px; }
+  .discount-remove{ color:var(--slate-soft); cursor:pointer; font-size:13px; flex-shrink:0; }
+  .discount-remove:hover{ color:var(--rust); }
+  .no-discounts{ font-size:12px; color:var(--slate-soft); padding:2px 0 4px; }
+
+  .inactive-banner{ display:flex; align-items:center; gap:12px; background:#F5F1EA; border:1px solid var(--slate-soft); border-radius:10px; padding:13px 16px; margin-bottom:18px; }
+  .inactive-banner .ib-icon{ font-size:16px; }
+  .inactive-banner .ib-text{ flex:1; font-size:12.5px; color:var(--slate); }
+  .inactive-banner .ib-text b{ color:var(--ink); }
+  .inactive-banner a{ font-size:12px; font-weight:600; color:var(--slate); cursor:pointer; }
+  .inactive-banner a:hover{ text-decoration:underline; }
+  .status-tag.withdrawn{ background:var(--rust-bg); color:var(--rust); }
+  .status-tag.graduated{ background:#EAEDF3; color:var(--slate); }
+
+  .exit-balance-box{ border-radius:10px; padding:14px 16px; margin-bottom:16px; }
+  .exit-balance-box.has-balance{ background:var(--rust-bg); border:1px solid var(--rust); }
+  .exit-balance-box.clear{ background:var(--success-bg); border:1px solid var(--success); }
+  .exit-balance-row{ display:flex; justify-content:space-between; font-size:12.5px; padding:4px 0; }
+  .exit-balance-row.total{ font-weight:700; border-top:1px dashed rgba(0,0,0,0.15); margin-top:6px; padding-top:8px; }
+  .confirm-check{ display:flex; align-items:flex-start; gap:10px; margin-top:16px; }
+  .confirm-check input{ width:16px; height:16px; margin-top:2px; accent-color:var(--rust); flex-shrink:0; }
+  .confirm-check label{ font-size:12px; color:var(--slate); line-height:1.5; cursor:pointer; }
+
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:11px 20px; border-radius:8px; font-size:12.5px; font-weight:500; opacity:0; pointer-events:none; transition:all .25s ease; z-index:99; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand"><div class="brand-mark">S</div><div class="brand-name">Schoolbook</div></div>
+    <div class="nav-section-label">Overview</div>
+    <a class="nav-item" href="06-dashboard.html"><span class="nav-icon">◧</span>Dashboard</a>
+    <div class="nav-section-label">Records</div>
+    <a class="nav-item active" href="04-students.html"><span class="nav-icon">☺</span>Students</a>
+    <a class="nav-item" href="07-payments.html"><span class="nav-icon">✎</span>Payments</a>
+    <a class="nav-item" href="10-class-register.html"><span class="nav-icon">▤</span>Class Register</a>
+    <a class="nav-item" href="11-promotion.html"><span class="nav-icon">↑</span>Promotion</a>
+    <a class="nav-item" href="08-reports.html"><span class="nav-icon">▦</span>Reports</a>
+    <div class="nav-section-label">Configuration</div>
+    <a class="nav-item" href="09-settings.html"><span class="nav-icon">⚙</span>Settings</a>
+    <a class="nav-item" href="12-audit-log.html"><span class="nav-icon">🕐</span>Audit Log</a>
+    <div class="sidebar-foot">
+      <div class="school-avatar">B</div>
+      <div class="school-meta"><div class="name">Bright Path College</div><div class="role">Admin</div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="crumb"><a href="04-students.html">Students</a> <span>/</span> <span class="cur">Adaeze Okafor</span></div>
+      <div class="session-pill"><span class="dot"></span>2025/2026 · Term 1</div>
+    </div>
+
+    <div class="content">
+      <div id="inactiveBanner" style="display:none;"></div>
+
+      <div class="profile-head">
+        <div class="big-avatar">AO</div>
+        <div class="profile-info">
+          <h2>Adaeze Okafor</h2>
+          <div class="profile-meta" id="profileMeta">
+            <span class="status-tag existing" id="statusTag">EXISTING</span>
+            <span class="class-tag">SS3 A</span>
+            <span>BPC-0091</span>
+            <span>·</span>
+            <span>Guardian: 0803 221 9087</span>
+          </div>
+        </div>
+        <div class="profile-actions">
+          <button class="btn-ghost" style="color:var(--rust); border-color:var(--rust-bg);" onclick="openExitPanel()">Withdraw student</button>
+          <button class="btn-ghost">Edit student</button>
+          <button class="btn-primary" onclick="openPanel()">Record payment</button>
+        </div>
+      </div>
+
+      <div class="household-card">
+        <div class="household-icon">👪</div>
+        <div class="household-body">
+          <div class="household-title">Okafor household — 2 siblings also enrolled</div>
+          <div class="household-siblings">
+            <span class="sibling-chip">Chidi Okafor · Primary 5</span>
+            <span class="sibling-chip">Ngozi Okafor · Primary 1</span>
+          </div>
+        </div>
+        <a class="btn-ghost" href="07-payments.html?household=okafor" style="text-decoration:none; display:inline-block;">Pay for whole family →</a>
+      </div>
+
+      <div class="notes-box">
+        <div id="notesList"></div>
+        <div class="add-note-row">
+          <input type="text" id="newNoteInput" placeholder="Pin a note — e.g. sibling discount, payment plan, special arrangement…">
+          <button onclick="addNote()">Pin note</button>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card warn">
+          <div class="label">Current term balance</div>
+          <div class="value" id="currentBalanceStat">₦85,000</div>
+          <div class="sub">SS3 A · Term 1, 2025/2026</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="label">Total arrears (all sessions)</div>
+          <div class="value">₦42,000</div>
+          <div class="sub">Carried from 1 earlier term — see below</div>
+        </div>
+        <div class="stat-card ok">
+          <div class="label">Paid this term so far</div>
+          <div class="value">₦65,000</div>
+          <div class="sub">2 payments recorded</div>
+        </div>
+      </div>
+
+      <!-- ARREARS -->
+      <div class="section">
+        <div class="section-title">
+          <div>
+            <h3>Outstanding arrears from previous terms</h3>
+            <p>These balances were never cleared and carried forward — they don't disappear when a student is promoted.</p>
+          </div>
+        </div>
+        <div class="arrears-box">
+          <div class="arrears-banner">⚠ This student has unpaid balances from a previous session</div>
+          <div class="table-wrap" style="border:none; border-radius:0;">
+            <div class="t-row head">
+              <div class="col-term">Session / Term</div>
+              <div class="col-fee">Fee item</div>
+              <div class="col-amt">Charged</div>
+              <div class="col-amt">Paid</div>
+              <div class="col-status">Balance</div>
+            </div>
+            <div class="t-row">
+              <div class="col-term"><div class="t">SS1 A</div><div class="s">2023/2024 · Term 2</div></div>
+              <div class="col-fee">School Fees</div>
+              <div class="col-amt">₦110,000</div>
+              <div class="col-amt">₦68,000</div>
+              <div class="col-status"><span class="bal-tag owed">₦42,000</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DISCOUNTS & WAIVERS -->
+      <div class="section">
+        <div class="section-title">
+          <div>
+            <h3>Discounts &amp; waivers</h3>
+            <p>Standing rules that reduce what this student is charged going forward — different from a write-off, which forgives an amount already charged.</p>
+          </div>
+          <button class="btn-ghost" onclick="openDiscountPanel()">+ Add discount</button>
+        </div>
+        <div id="discountBody"></div>
+      </div>
+
+      <!-- CURRENT TERM CHARGES -->
+      <div class="section">
+        <div class="section-title">
+          <div>
+            <h3>This term's charges</h3>
+            <p>SS3 A · Term 1, 2025/2026</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <div class="t-row head">
+            <div class="col-fee">Fee item</div>
+            <div class="col-amt">Charged</div>
+            <div class="col-amt">Paid</div>
+            <div class="col-status">Balance</div>
+            <div class="col-action-btn" style="flex:1;"></div>
+          </div>
+          <div id="chargesBody"></div>
+        </div>
+      </div>
+
+      <!-- WRITE-OFF HISTORY -->
+      <div class="section" id="writeOffSection" style="display:none;">
+        <div class="section-title">
+          <div>
+            <h3>Write-offs on this record</h3>
+            <p>A permanent record of any balance forgiven — never editable or deletable once recorded.</p>
+          </div>
+        </div>
+        <div class="table-wrap" style="border-color:var(--gold-soft);">
+          <div id="writeOffBody"></div>
+        </div>
+      </div>
+
+      <!-- RECENT PAYMENTS -->
+      <div class="section">
+        <div class="section-title">
+          <div>
+            <h3>Recent payments</h3>
+            <p>The last few payments recorded, most recent first.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <div id="paymentLog"></div>
+        </div>
+      </div>
+
+      <!-- FULL ACADEMIC HISTORY -->
+      <div class="section">
+        <div class="section-title">
+          <div>
+            <h3>Full academic history</h3>
+            <p>Every session this student has been enrolled — Primary 1 through today — collapsed by default so it stays readable at scale.</p>
+          </div>
+          <select id="jumpSession" onchange="jumpToSession()">
+            <option value="">Jump to a session…</option>
+          </select>
+        </div>
+        <div id="historyAccordion"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RECORD PAYMENT PANEL -->
+  <div class="overlay" id="overlay" onclick="closePanel()"></div>
+  <div class="panel" id="panel">
+    <div class="panel-head">
+      <div>
+        <h3>Record a payment</h3>
+        <p>For Adaeze Okafor · SS3 A</p>
+      </div>
+      <div class="panel-close" onclick="closePanel()">✕</div>
+    </div>
+    <div class="panel-body">
+      <div class="field">
+        <label>Amount received</label>
+        <input type="number" id="pAmount" placeholder="e.g. 40000">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="pDate" value="2026-07-14">
+        </div>
+        <div class="field">
+          <label>Method</label>
+          <select id="pMethod">
+            <option>Bank transfer</option>
+            <option>Cash</option>
+            <option>POS</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Apply to</label>
+        <select id="pApply">
+          <option value="oldest">Oldest outstanding first (SS1 arrears → current term)</option>
+          <option value="current">This term's School Fees only</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Receipt number</label>
+        <input type="text" id="pReceipt" placeholder="e.g. RCT-2216">
+      </div>
+      <div class="allocation-note">
+        <b>Default rule:</b> payments clear the oldest unpaid balance first — so this payment would settle the ₦42,000 SS1 arrears before reducing this term's balance. You can override this per payment above.
+      </div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn-primary" style="width:100%;" onclick="savePayment()">Record payment</button>
+    </div>
+  </div>
+
+  <!-- WRITE OFF PANEL -->
+  <div class="overlay" id="woOverlay" onclick="closeWriteOffPanel()"></div>
+  <div class="panel" id="woPanel">
+    <div class="panel-head">
+      <div>
+        <h3>Write off a balance</h3>
+        <p id="woSub">For Adaeze Okafor · SS3 A</p>
+      </div>
+      <div class="panel-close" onclick="closeWriteOffPanel()">✕</div>
+    </div>
+    <div class="panel-body">
+      <div class="allocation-note" style="border-color:var(--gold-soft); background:#FCF3E3;">
+        Writing off a balance marks it as forgiven — it is <b>not</b> recorded as money received, and will not appear in collections totals. This action is permanent and stays visible on the student's record.
+      </div>
+      <div class="field" style="margin-top:16px;">
+        <label>Amount to write off</label>
+        <input type="number" id="woAmount" placeholder="e.g. 85000">
+      </div>
+      <div class="field">
+        <label>Reason <span class="required-mark">*required</span></label>
+        <textarea id="woReason" placeholder="e.g. Family lost their home in a flood — proprietor approved full write-off, July 2026."></textarea>
+        <div class="field-error" id="woReasonError">A reason is required before a balance can be written off.</div>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn-primary" style="width:100%; background:var(--gold);" onclick="saveWriteOff()">Confirm write-off</button>
+    </div>
+  </div>
+
+  <!-- DISCOUNT PANEL -->
+  <div class="overlay" id="discOverlay" onclick="closeDiscountPanel()"></div>
+  <div class="panel" id="discPanel">
+    <div class="panel-head">
+      <div>
+        <h3>Add a discount or waiver</h3>
+        <p>A standing rule — applies to future charges for this fee item.</p>
+      </div>
+      <div class="panel-close" onclick="closeDiscountPanel()">✕</div>
+    </div>
+    <div class="panel-body">
+      <div class="field">
+        <label>Fee item</label>
+        <select id="discFee">
+          <option>School Fees</option>
+          <option>Uniform</option>
+          <option>Sportwear</option>
+          <option>Admission Form</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Discount type</label>
+          <select id="discType">
+            <option value="percent">Percentage off</option>
+            <option value="fixed">Fixed amount off</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Value</label>
+          <input type="number" id="discValue" placeholder="e.g. 10">
+        </div>
+      </div>
+      <div class="field">
+        <label>Reason <span class="required-mark">*required</span></label>
+        <textarea id="discReason" placeholder="e.g. Staff child — 10% discount per school policy."></textarea>
+        <div class="field-error" id="discReasonError">A reason is required before a discount can be applied.</div>
+      </div>
+      <div class="confirm-check">
+        <input type="checkbox" id="discApplyNow">
+        <label for="discApplyNow">Also apply this discount to this term's charge right now (otherwise it only affects charges generated from next term onward)</label>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn-primary" style="width:100%;" onclick="saveDiscount()">Add discount</button>
+    </div>
+  </div>
+
+  <!-- EXIT / WITHDRAWAL PANEL -->
+  <div class="overlay" id="exitOverlay" onclick="closeExitPanel()"></div>
+  <div class="panel" id="exitPanel">
+    <div class="panel-head">
+      <div>
+        <h3>Withdraw Adaeze Okafor</h3>
+        <p>Review outstanding balances before marking this record inactive.</p>
+      </div>
+      <div class="panel-close" onclick="closeExitPanel()">✕</div>
+    </div>
+    <div class="panel-body">
+      <div class="exit-balance-box" id="exitBalanceBox"></div>
+
+      <div class="field">
+        <label>Reason for leaving</label>
+        <select id="exitReason">
+          <option value="graduated">Graduated</option>
+          <option value="transferred">Transferred to another school</option>
+          <option value="withdrawn">Withdrawn by parent/guardian</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Notes (optional)</label>
+        <textarea id="exitNotes" placeholder="Any additional context for the record…"></textarea>
+      </div>
+
+      <div class="confirm-check">
+        <input type="checkbox" id="exitConfirmCheck" onchange="document.getElementById('exitConfirmBtn').disabled = !this.checked;">
+        <label for="exitConfirmCheck">I understand this does not clear or forgive any outstanding balance — it only marks the student as inactive. Balances remain on file and can still be collected or written off separately.</label>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn-primary" id="exitConfirmBtn" style="width:100%; background:var(--rust);" onclick="confirmExit()" disabled>Confirm withdrawal</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Saved</div>
+
+<script>
+  let paymentLog = [
+    { date:"2026-07-02", fee:"School Fees", term:"Term 1, 2025/2026", amount:65000, method:"Bank transfer", receipt:"RCT-2201" },
+    { date:"2026-04-18", fee:"Sportwear", term:"Term 1, 2025/2026", amount:8000, method:"Cash", receipt:"RCT-2144" },
+    { date:"2024-11-30", fee:"School Fees", term:"Term 2, 2023/2024", amount:68000, method:"Bank transfer", receipt:"RCT-1876" },
+  ];
+
+  // ---- Current term charges (now data-driven so write-offs can update it) ----
+  let currentCharges = [
+    { fee:"School Fees", charged:150000, paid:65000, writtenOff:0 },
+    { fee:"Sportwear", charged:8000, paid:8000, writtenOff:0 },
+  ];
+  let writeOffs = [];
+
+  // ---- Discounts & waivers (standing rules, distinct from write-offs) ----
+  let discounts = [];
+
+  function renderDiscounts(){
+    const box = document.getElementById('discountBody');
+    if(discounts.length === 0){
+      box.innerHTML = `<div class="no-discounts">No standing discounts on this record.</div>`;
+      return;
+    }
+    box.innerHTML = discounts.map((d, i) => `
+      <div class="discount-card">
+        <div class="discount-icon">%</div>
+        <div class="discount-body">
+          <div class="discount-top">
+            <div class="discount-fee">${d.fee}</div>
+            <div class="discount-val">${d.type === 'percent' ? d.value + '% off' : '₦' + d.value.toLocaleString() + ' off'} every charge</div>
+          </div>
+          <div class="discount-reason">"${d.reason}"</div>
+          <div class="discount-meta">${d.by} · ${d.date} · applies from ${d.appliedNow ? 'this term' : 'next term'} onward</div>
+        </div>
+        <div class="discount-remove" onclick="removeDiscount(${i})" title="Remove this standing discount">✕</div>
+      </div>
+    `).join('');
+  }
+
+  function openDiscountPanel(){
+    document.getElementById('discValue').value = '';
+    document.getElementById('discReason').value = '';
+    document.getElementById('discApplyNow').checked = false;
+    document.getElementById('discReasonError').style.display = 'none';
+    document.getElementById('discOverlay').classList.add('show');
+    document.getElementById('discPanel').classList.add('show');
+  }
+  function closeDiscountPanel(){
+    document.getElementById('discOverlay').classList.remove('show');
+    document.getElementById('discPanel').classList.remove('show');
+  }
+
+  function saveDiscount(){
+    const reason = document.getElementById('discReason').value.trim();
+    const errorBox = document.getElementById('discReasonError');
+    if(!reason){
+      errorBox.style.display = 'block';
+      document.getElementById('discReason').focus();
+      return;
+    }
+    errorBox.style.display = 'none';
+
+    const fee = document.getElementById('discFee').value;
+    const type = document.getElementById('discType').value;
+    const value = parseInt(document.getElementById('discValue').value) || 0;
+    if(value <= 0){ showToast('Enter a discount value'); return; }
+    const applyNow = document.getElementById('discApplyNow').checked;
+
+    discounts.unshift({ fee, type, value, reason, appliedNow: applyNow, by: "Admin (you)", date: "2026-07-14" });
+
+    if(applyNow){
+      const charge = currentCharges.find(c => c.fee === fee);
+      if(charge){
+        const reduction = type === 'percent' ? Math.round(charge.charged * value / 100) : value;
+        charge.charged = Math.max(0, charge.charged - reduction);
+        renderCurrentCharges();
+      }
+    }
+
+    renderDiscounts();
+    closeDiscountPanel();
+    showToast(`Discount added for ${fee}`);
+  }
+
+  function removeDiscount(i){
+    discounts.splice(i, 1);
+    renderDiscounts();
+  }
+
+  function renderCurrentCharges(){
+    const box = document.getElementById('chargesBody');
+    box.innerHTML = currentCharges.map((c, i) => {
+      const bal = c.charged - c.paid - c.writtenOff;
+      let tag;
+      if(bal > 0) tag = `<span class="bal-tag owed">₦${bal.toLocaleString()}</span>`;
+      else if(c.writtenOff > 0) tag = `<span class="bal-tag writtenoff">WRITTEN OFF</span>`;
+      else tag = `<span class="bal-tag clear">Cleared</span>`;
+
+      return `
+        <div class="t-row">
+          <div class="col-fee">${c.fee}</div>
+          <div class="col-amt">₦${c.charged.toLocaleString()}</div>
+          <div class="col-amt">₦${c.paid.toLocaleString()}</div>
+          <div class="col-status">${tag}</div>
+          <div class="col-action-btn" style="flex:1;">
+            ${bal > 0 ? `<span class="mini-btn" onclick="openPanel()">Pay →</span><span class="writeoff-btn" onclick="openWriteOffPanel(${i})">Write off</span>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // keep the top "Current term balance" stat in sync
+    const totalBal = currentCharges.reduce((s,c) => s + (c.charged - c.paid - c.writtenOff), 0);
+    document.getElementById('currentBalanceStat').textContent = `₦${totalBal.toLocaleString()}`;
+  }
+
+  function renderWriteOffs(){
+    const section = document.getElementById('writeOffSection');
+    const box = document.getElementById('writeOffBody');
+    if(writeOffs.length === 0){
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = 'block';
+    box.innerHTML = writeOffs.map(w => `
+      <div class="wo-row">
+        <div class="wo-icon">📝</div>
+        <div class="wo-body">
+          <div class="wo-top"><div class="wo-fee">${w.fee}</div><div class="wo-amt">₦${w.amount.toLocaleString()} written off</div></div>
+          <div class="wo-reason">"${w.reason}"</div>
+          <div class="wo-meta">${w.by} · ${w.date}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  let woChargeIndex = null;
+
+  function openWriteOffPanel(idx){
+    woChargeIndex = idx;
+    const c = currentCharges[idx];
+    const bal = c.charged - c.paid - c.writtenOff;
+    document.getElementById('woSub').textContent = `${c.fee} · balance owed ₦${bal.toLocaleString()}`;
+    document.getElementById('woAmount').value = bal;
+    document.getElementById('woAmount').max = bal;
+    document.getElementById('woReason').value = '';
+    document.getElementById('woReasonError').style.display = 'none';
+    document.getElementById('woOverlay').classList.add('show');
+    document.getElementById('woPanel').classList.add('show');
+  }
+  function closeWriteOffPanel(){
+    document.getElementById('woOverlay').classList.remove('show');
+    document.getElementById('woPanel').classList.remove('show');
+  }
+
+  function saveWriteOff(){
+    const reason = document.getElementById('woReason').value.trim();
+    const errorBox = document.getElementById('woReasonError');
+    if(!reason){
+      errorBox.style.display = 'block';
+      document.getElementById('woReason').focus();
+      return;
+    }
+    errorBox.style.display = 'none';
+
+    const c = currentCharges[woChargeIndex];
+    const bal = c.charged - c.paid - c.writtenOff;
+    let amount = parseInt(document.getElementById('woAmount').value) || 0;
+    if(amount <= 0){ showToast('Enter a valid amount'); return; }
+    if(amount > bal) amount = bal; // can never write off more than what's owed
+
+    c.writtenOff += amount;
+    writeOffs.unshift({
+      fee: c.fee, amount, reason,
+      by: "Admin (you)",
+      date: "2026-07-14"
+    });
+
+    renderCurrentCharges();
+    renderWriteOffs();
+    closeWriteOffPanel();
+    showToast(`₦${amount.toLocaleString()} written off — reason recorded on file`);
+  }
+
+  // ---- Exit / withdrawal ----
+  const arrearsTotal = 42000; // matches the "Total arrears" stat card above
+
+  function openExitPanel(){
+    const currentBal = currentCharges.reduce((s,c) => s + (c.charged - c.paid - c.writtenOff), 0);
+    const totalOwed = currentBal + arrearsTotal;
+    const box = document.getElementById('exitBalanceBox');
+
+    if(totalOwed > 0){
+      box.className = 'exit-balance-box has-balance';
+      box.innerHTML = `
+        <div style="font-weight:700; color:var(--rust); font-size:12.5px; margin-bottom:6px;">⚠ This student still owes money</div>
+        <div class="exit-balance-row"><div>Current term balance</div><div>₦${currentBal.toLocaleString()}</div></div>
+        <div class="exit-balance-row"><div>Arrears from prior sessions</div><div>₦${arrearsTotal.toLocaleString()}</div></div>
+        <div class="exit-balance-row total"><div>Total outstanding</div><div>₦${totalOwed.toLocaleString()}</div></div>
+      `;
+    } else {
+      box.className = 'exit-balance-box clear';
+      box.innerHTML = `<div style="font-weight:700; color:var(--success); font-size:12.5px;">✓ No outstanding balance — this student is fully cleared.</div>`;
+    }
+
+    document.getElementById('exitConfirmCheck').checked = false;
+    document.getElementById('exitConfirmBtn').disabled = true;
+    document.getElementById('exitReason').value = 'graduated';
+    document.getElementById('exitNotes').value = '';
+    document.getElementById('exitOverlay').classList.add('show');
+    document.getElementById('exitPanel').classList.add('show');
+  }
+  function closeExitPanel(){
+    document.getElementById('exitOverlay').classList.remove('show');
+    document.getElementById('exitPanel').classList.remove('show');
+  }
+
+  function confirmExit(){
+    const reason = document.getElementById('exitReason').value;
+    const reasonLabel = { graduated:'Graduated', transferred:'Transferred to another school', withdrawn:'Withdrawn by parent/guardian', other:'Other' }[reason];
+    const tagClass = reason === 'graduated' ? 'graduated' : 'withdrawn';
+    const tagText = reason === 'graduated' ? 'GRADUATED' : 'WITHDRAWN';
+
+    document.getElementById('statusTag').className = 'status-tag ' + tagClass;
+    document.getElementById('statusTag').textContent = tagText;
+
+    const banner = document.getElementById('inactiveBanner');
+    banner.style.display = 'block';
+    banner.innerHTML = `
+      <div class="inactive-banner">
+        <div class="ib-icon">🗂</div>
+        <div class="ib-text"><b>This student is no longer active.</b> ${reasonLabel} · 14 July 2026. Excluded from active rosters and reports, but the full record remains accessible here.</div>
+        <a onclick="reactivateStudent()">Reactivate</a>
+      </div>
+    `;
+
+    closeExitPanel();
+    showToast(`Marked as ${tagText.toLowerCase()} — removed from active rosters`);
+  }
+
+  function reactivateStudent(){
+    document.getElementById('statusTag').className = 'status-tag existing';
+    document.getElementById('statusTag').textContent = 'EXISTING';
+    document.getElementById('inactiveBanner').style.display = 'none';
+    showToast('Student reactivated — visible in active rosters again');
+  }
+
+  function renderPaymentLog(){
+    const box = document.getElementById('paymentLog');
+    box.innerHTML = paymentLog.map(p => `
+      <div class="payment-log-row">
+        <div class="plog-date">${p.date}</div>
+        <div class="plog-desc"><div class="f">${p.fee}</div><div class="s">${p.term}</div></div>
+        <div class="plog-method">${p.method}</div>
+        <div class="plog-amt">+₦${p.amount.toLocaleString()}</div>
+      </div>
+    `).join('');
+  }
+
+  function openPanel(){
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('panel').classList.add('show');
+  }
+  function closePanel(){
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('panel').classList.remove('show');
+  }
+
+  function savePayment(){
+    const amount = parseInt(document.getElementById('pAmount').value) || 0;
+    if(amount <= 0){
+      showToast('Enter a valid amount');
+      return;
+    }
+    const applyTo = document.getElementById('pApply').value;
+    const label = applyTo === 'oldest' ? 'School Fees (SS1 arrears)' : 'School Fees';
+    paymentLog.unshift({
+      date: document.getElementById('pDate').value || '2026-07-14',
+      fee: label,
+      term: applyTo === 'oldest' ? 'Applied to oldest balance first' : 'Term 1, 2025/2026',
+      amount: amount,
+      method: document.getElementById('pMethod').value,
+      receipt: document.getElementById('pReceipt').value || '—'
+    });
+    renderPaymentLog();
+
+    // Keep "This term's charges" and the balance stat in sync with payments
+    // made from this panel (only School Fees carries current-term balance
+    // in this demo dataset).
+    if(applyTo === 'current'){
+      const sf = currentCharges.find(c => c.fee === 'School Fees');
+      if(sf) sf.paid += amount;
+      renderCurrentCharges();
+    }
+
+    closePanel();
+    showToast(`₦${amount.toLocaleString()} recorded — balances updated`);
+    document.getElementById('pAmount').value = '';
+    document.getElementById('pReceipt').value = '';
+  }
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  let notes = [
+    { text:"Sibling discount approved by proprietor — 10% off School Fees (has 2 siblings enrolled).", by:"Mrs. Adeyemi (Admin)", date:"2026-06-02" },
+    { text:"Parent pays in 3 installments each term — last installment usually arrives mid-term.", by:"Mrs. Adeyemi (Admin)", date:"2026-01-14" },
+  ];
+
+  function renderNotes(){
+    const box = document.getElementById('notesList');
+    if(notes.length === 0){
+      box.innerHTML = `<div class="no-notes">No pinned notes for this student yet.</div>`;
+      return;
+    }
+    box.innerHTML = notes.map((n, i) => `
+      <div class="note-card">
+        <div class="note-pin">📌</div>
+        <div class="note-body">
+          <div class="note-text">${n.text}</div>
+          <div class="note-meta">${n.by} · ${n.date}</div>
+        </div>
+        <div class="note-remove" onclick="removeNote(${i})">✕</div>
+      </div>
+    `).join('');
+  }
+
+  function addNote(){
+    const input = document.getElementById('newNoteInput');
+    const val = input.value.trim();
+    if(!val) return;
+    notes.unshift({ text: val, by: "Admin (you)", date: "2026-07-14" });
+    input.value = '';
+    renderNotes();
+    showToast('Note pinned to profile');
+  }
+
+  function removeNote(i){
+    notes.splice(i, 1);
+    renderNotes();
+  }
+
+  // ---- Full academic history (Primary 1 → SS3, generated for scale demo) ----
+  const gradeProgression = ["Primary 1","Primary 2","Primary 3","Primary 4","Primary 5",
+    "Primary 6","JSS1","JSS2","JSS3","SS1","SS2","SS3"];
+  const feePerLevel = { "Primary 1":95000,"Primary 2":95000,"Primary 3":100000,"Primary 4":100000,
+    "Primary 5":105000,"Primary 6":105000,"JSS1":120000,"JSS2":120000,"JSS3":125000,
+    "SS1":140000,"SS2":140000,"SS3":150000 };
+
+  let academicHistory = [];
+  const startYear = 2026 - gradeProgression.length; // ends at 2025/2026 for SS3
+  gradeProgression.forEach((level, i) => {
+    const y = startYear + i;
+    const sessionLabel = `${y}/${y+1}`;
+    const fee = feePerLevel[level];
+    const terms = ["Term 1","Term 2","Term 3"].map(tname => ({
+      name: tname, charged: fee, paid: fee,
+      receipts: [{ date:`${y}-11-05`, fee:"School Fees", method:"Bank transfer", receipt:`RCT-${y}${tname[5]}`, amount: fee }]
+    }));
+    academicHistory.push({ session: sessionLabel, cls: `${level} A`, terms, current:false });
+  });
+
+  // Override: SS1 A, Term 2 has the known arrears case
+  const ss1 = academicHistory.find(s => s.cls === "SS1 A");
+  const t2 = ss1.terms[1];
+  t2.charged = 110000; t2.paid = 68000;
+  t2.receipts = [{ date:"2024-11-30", fee:"School Fees", method:"Bank transfer", receipt:"RCT-1876", amount:68000 }];
+
+  // Override: current session (SS3 A) reflects the live stat cards above
+  const ss3 = academicHistory.find(s => s.cls === "SS3 A");
+  ss3.current = true;
+  ss3.terms = [
+    { name:"Term 1", charged:158000, paid:73000, receipts:[
+      { date:"2026-07-02", fee:"School Fees", method:"Bank transfer", receipt:"RCT-2201", amount:65000 },
+      { date:"2026-04-18", fee:"Sportwear", method:"Cash", receipt:"RCT-2144", amount:8000 },
+    ]},
+    { name:"Term 2", charged:0, paid:0, receipts:[] },
+    { name:"Term 3", charged:0, paid:0, receipts:[] },
+  ];
+
+  let openSessions = new Set([ss3.session, ss1.session]);
+  let openTerms = new Set([ss3.session + "|Term 1", ss1.session + "|Term 2"]);
+
+  function renderHistory(){
+    const box = document.getElementById('historyAccordion');
+    box.innerHTML = academicHistory.slice().reverse().map(s => {
+      const charged = s.terms.reduce((sum,t) => sum + t.charged, 0);
+      const paid = s.terms.reduce((sum,t) => sum + t.paid, 0);
+      const balance = charged - paid;
+      const isOpen = openSessions.has(s.session);
+      const hasArrears = balance > 0 && !s.current;
+
+      const termRows = s.terms.map(t => {
+        const tBal = t.charged - t.paid;
+        const tKey = s.session + "|" + t.name;
+        const tOpen = openTerms.has(tKey);
+        if(t.charged === 0){
+          return `<div class="term-row" style="cursor:default;"><div class="tname" style="color:var(--slate-soft);">${t.name}</div><div class="tamt">Not yet charged</div><div class="tbal"></div></div>`;
+        }
+        const detail = tOpen ? `
+          <div class="term-detail">
+            ${t.receipts.length ? t.receipts.map(r => `
+              <div class="receipt-line">
+                <div><span class="rf">${r.fee}</span> <span class="rd">· ${r.method} · ${r.receipt}</span></div>
+                <div class="ra">₦${r.amount.toLocaleString()} <span class="rd">${r.date}</span></div>
+              </div>
+            `).join('') : '<div class="no-balance-note">No payments recorded for this term.</div>'}
+            ${tBal > 0 ? `<div class="receipt-line"><div class="rf" style="color:var(--rust);">Balance remaining</div><div class="ra" style="color:var(--rust);">₦${tBal.toLocaleString()}</div></div>` : ''}
+          </div>` : '';
+        return `
+          <div class="term-row ${tOpen ? 'open' : ''}" onclick="toggleTerm('${tKey}', event)">
+            <div class="tname">${t.name}</div>
+            <div class="tamt">₦${t.paid.toLocaleString()} / ₦${t.charged.toLocaleString()}</div>
+            <div class="tbal">${tBal > 0 ? `<span class="session-bal-tag owed">₦${tBal.toLocaleString()}</span>` : `<span class="session-bal-tag clear">Cleared</span>`}</div>
+          </div>${detail}`;
+      }).join('');
+
+      return `
+        <div class="session-block ${isOpen ? 'open' : ''} ${hasArrears ? 'has-arrears' : ''}" id="session-${s.session.replace('/','-')}">
+          <div class="session-header" onclick="toggleSession('${s.session}', event)">
+            <div class="session-chevron">▸</div>
+            <div class="session-title-block">
+              <div class="s">${s.session}${s.current ? ' <span style="color:var(--gold); font-family:\'IBM Plex Mono\', monospace; font-size:10px;">· CURRENT</span>' : ''}</div>
+              <div class="c">${s.cls}</div>
+            </div>
+            <div class="session-totals">
+              <div class="st"><div class="lbl">Charged</div><div class="val">₦${charged.toLocaleString()}</div></div>
+              <div class="st"><div class="lbl">Paid</div><div class="val">₦${paid.toLocaleString()}</div></div>
+            </div>
+            ${balance > 0 ? `<span class="session-bal-tag owed">₦${balance.toLocaleString()}</span>` : `<span class="session-bal-tag clear">Cleared</span>`}
+          </div>
+          <div class="session-body">${termRows}</div>
+        </div>
+      `;
+    }).join('');
+
+    // populate jump dropdown once
+    const jump = document.getElementById('jumpSession');
+    if(jump.options.length <= 1){
+      academicHistory.slice().reverse().forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.session;
+        opt.textContent = `${s.session} — ${s.cls}`;
+        jump.appendChild(opt);
+      });
+    }
+  }
+
+  function toggleSession(session, e){
+    e.stopPropagation();
+    if(openSessions.has(session)) openSessions.delete(session);
+    else openSessions.add(session);
+    renderHistory();
+  }
+  function toggleTerm(key, e){
+    e.stopPropagation();
+    if(openTerms.has(key)) openTerms.delete(key);
+    else openTerms.add(key);
+    renderHistory();
+  }
+  function jumpToSession(){
+    const val = document.getElementById('jumpSession').value;
+    if(!val) return;
+    openSessions.add(val);
+    renderHistory();
+    setTimeout(() => {
+      document.getElementById('session-' + val.replace('/','-')).scrollIntoView({ behavior:'smooth', block:'center' });
+    }, 50);
+  }
+
+  renderNotes();
+  renderPaymentLog();
+  renderHistory();
+  renderCurrentCharges();
+  renderWriteOffs();
+  renderDiscounts();
+</script>
+
+</body>
+</html>

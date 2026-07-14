@@ -1,0 +1,36 @@
+# Schoolbook — PowerSync Sync Streams
+# Paste this into: PowerSync Dashboard -> your instance -> Sync Streams -> editor
+# Then click "Validate", then "Deploy".
+#
+# Requires: Client Auth "Use Supabase Auth" already enabled (done in Phase 0
+# setup), and migrations 001-003 already applied to Supabase.
+#
+# Every table is tenant-scoped by school_id, but school_id isn't directly on
+# the JWT — so each query joins through `accounts` (id = the logged-in
+# Supabase user's id) to resolve which school the requester belongs to. This
+# mirrors PowerSync's own documented pattern for indirect ownership (their
+# demo app resolves `todos` -> `lists.owner_id` the same way).
+
+config:
+  edition: 3
+streams:
+  tenant_data:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM accounts WHERE id = auth.user_id()
+      - SELECT schools.* FROM schools INNER JOIN accounts ON accounts.school_id = schools.id WHERE accounts.id = auth.user_id()
+      - SELECT sessions.* FROM sessions INNER JOIN accounts ON accounts.school_id = sessions.school_id WHERE accounts.id = auth.user_id()
+      - SELECT terms.* FROM terms INNER JOIN accounts ON accounts.school_id = terms.school_id WHERE accounts.id = auth.user_id()
+      - SELECT class_levels.* FROM class_levels INNER JOIN accounts ON accounts.school_id = class_levels.school_id WHERE accounts.id = auth.user_id()
+      - SELECT class_arms.* FROM class_arms INNER JOIN accounts ON accounts.school_id = class_arms.school_id WHERE accounts.id = auth.user_id()
+      - SELECT fee_items.* FROM fee_items INNER JOIN accounts ON accounts.school_id = fee_items.school_id WHERE accounts.id = auth.user_id()
+      - SELECT fee_item_pricing.* FROM fee_item_pricing INNER JOIN accounts ON accounts.school_id = fee_item_pricing.school_id WHERE accounts.id = auth.user_id()
+      - SELECT households.* FROM households INNER JOIN accounts ON accounts.school_id = households.school_id WHERE accounts.id = auth.user_id()
+      - SELECT students.* FROM students INNER JOIN accounts ON accounts.school_id = students.school_id WHERE accounts.id = auth.user_id()
+      - SELECT enrollment_history.* FROM enrollment_history INNER JOIN accounts ON accounts.school_id = enrollment_history.school_id WHERE accounts.id = auth.user_id()
+      - SELECT charges.* FROM charges INNER JOIN accounts ON accounts.school_id = charges.school_id WHERE accounts.id = auth.user_id()
+      - SELECT payments.* FROM payments INNER JOIN accounts ON accounts.school_id = payments.school_id WHERE accounts.id = auth.user_id()
+      - SELECT student_notes.* FROM student_notes INNER JOIN accounts ON accounts.school_id = student_notes.school_id WHERE accounts.id = auth.user_id()
+      - SELECT write_offs.* FROM write_offs INNER JOIN accounts ON accounts.school_id = write_offs.school_id WHERE accounts.id = auth.user_id()
+      - SELECT discounts.* FROM discounts INNER JOIN accounts ON accounts.school_id = discounts.school_id WHERE accounts.id = auth.user_id()
+      - SELECT audit_log.* FROM audit_log INNER JOIN accounts ON accounts.school_id = audit_log.school_id WHERE accounts.id = auth.user_id()

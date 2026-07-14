@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Schoolbook — Payments</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16233D; --slate:#2F4468; --slate-soft:#5B6E90;
+    --gold:#B98B3E; --gold-soft:#E4C88A;
+    --paper:#F4F5F8; --paper-card:#FFFFFF; --line:#DCE0E9;
+    --success:#3A7D5C; --success-bg:#E9F3EE;
+    --rust:#B84C3E; --rust-bg:#FBEBE9;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink); display:flex; min-height:100vh; -webkit-font-smoothing:antialiased; }
+
+  .sidebar{ width:230px; flex-shrink:0; background:var(--ink); color:#fff; display:flex; flex-direction:column; padding:22px 16px; }
+  .brand{ display:flex; align-items:center; gap:10px; padding:0 6px 24px; }
+  .brand-mark{ width:30px; height:30px; border:1.5px solid var(--gold-soft); border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:700; font-size:14px; color:var(--gold-soft); flex-shrink:0; }
+  .brand-name{ font-family:'Source Serif 4', serif; font-weight:600; font-size:16.5px; }
+  .nav-section-label{ font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#7C89A6; padding:14px 10px 8px; }
+  .nav-item{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px; font-size:13.5px; font-weight:500; color:#C4CCDE; cursor:pointer; margin-bottom:2px; transition:background .12s ease, color .12s ease; text-decoration:none; }
+  .nav-item:hover{ background:rgba(255,255,255,0.06); color:#fff; }
+  .nav-item.active{ background:var(--slate); color:#fff; font-weight:600; }
+  .nav-icon{ width:16px; text-align:center; font-size:13px; flex-shrink:0; }
+  .nav-item.disabled{ opacity:0.42; cursor:default; pointer-events:none; }
+  .sidebar-foot{ margin-top:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:14px; display:flex; align-items:center; gap:9px; }
+  .school-avatar{ width:30px; height:30px; border-radius:8px; background:var(--slate); display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:600; font-size:13px; }
+  .school-meta{ line-height:1.3; }
+  .school-meta .name{ font-size:12.5px; font-weight:600; }
+  .school-meta .role{ font-size:10.5px; color:#8895AF; }
+
+  .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .topbar{ height:64px; flex-shrink:0; background:var(--paper-card); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; padding:0 28px; }
+  .topbar h1{ font-family:'Source Serif 4', serif; font-size:19px; font-weight:600; }
+  .session-pill{ display:flex; align-items:center; gap:8px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:600; color:var(--slate); font-family:'IBM Plex Mono', monospace; }
+  .session-pill .dot{ width:6px; height:6px; border-radius:50%; background:var(--success); }
+
+  .content{ padding:28px 32px 60px; overflow-y:auto; }
+  .page-head{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:20px; }
+  .page-head .eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--slate-soft); margin-bottom:6px; }
+  .page-head h2{ font-family:'Source Serif 4', serif; font-size:24px; font-weight:600; }
+  .page-head p{ font-size:13px; color:var(--slate-soft); margin-top:4px; max-width:480px; }
+
+  .btn-primary{ padding:10px 16px; background:var(--ink); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:background .15s ease; white-space:nowrap; }
+  .btn-primary:hover{ background:var(--slate); }
+  .btn-ghost{ padding:10px 16px; background:var(--paper-card); color:var(--slate); border:1px solid var(--line); border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
+  .btn-ghost:hover{ background:var(--paper); }
+
+  .stat-row{ display:flex; gap:14px; margin-bottom:22px; }
+  .stat-card{ flex:1; background:var(--paper-card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .stat-card .label{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--slate-soft); margin-bottom:8px; }
+  .stat-card .value{ font-family:'Source Serif 4', serif; font-size:22px; font-weight:600; }
+  .stat-card .sub{ font-size:11px; color:var(--slate-soft); margin-top:5px; }
+
+  .filter-bar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .filter-bar select, .filter-bar input{ padding:9px 12px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-family:'Inter', sans-serif; background:var(--paper-card); color:var(--ink); outline:none; }
+  .filter-bar select:focus, .filter-bar input:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+  .filter-bar input[type="text"]{ flex:1; min-width:200px; }
+  .result-count{ font-size:12px; color:var(--slate-soft); margin-bottom:12px; font-family:'IBM Plex Mono', monospace; }
+
+  .table-wrap{ background:var(--paper-card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .t-row{ display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); font-size:12.5px; gap:10px; }
+  .t-row:last-child{ border-bottom:none; }
+  .t-row.head{ background:var(--paper); font-family:'IBM Plex Mono', monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--slate-soft); font-weight:600; padding:9px 16px; }
+  .t-row:not(.head):hover{ background:#FAFBFC; }
+  .col-date{ flex:0.9; font-family:'IBM Plex Mono', monospace; color:var(--slate-soft); }
+  .col-student{ flex:1.6; min-width:0; }
+  .col-student .n{ font-weight:600; }
+  .col-student .c{ font-size:11px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; }
+  .col-fee{ flex:1.2; }
+  .col-method{ flex:0.9; }
+  .method-tag{ font-size:10.5px; color:var(--slate); background:var(--paper); border:1px solid var(--line); padding:3px 8px; border-radius:6px; font-family:'IBM Plex Mono', monospace; }
+  .col-receipt{ flex:0.9; font-family:'IBM Plex Mono', monospace; color:var(--slate-soft); }
+  .col-amt{ flex:0.9; text-align:right; font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--success); }
+  .col-void-action{ width:64px; text-align:right; flex-shrink:0; line-height:1.6; }
+  .void-link{ font-size:11px; font-weight:600; color:var(--rust); cursor:pointer; }
+  .void-link:hover{ text-decoration:underline; }
+  .void-tag{ font-family:'IBM Plex Mono', monospace; font-size:9.5px; font-weight:700; color:var(--slate-soft); background:var(--paper); border:1px solid var(--line); padding:3px 6px; border-radius:5px; }
+  .t-row.voided-row{ background:#FAFAFA; opacity:0.75; }
+  .voided-amt{ text-decoration:line-through; color:var(--slate-soft); }
+  .void-reason{ font-size:10.5px; color:var(--rust); margin-top:2px; font-style:italic; }
+  .empty-note{ padding:40px 20px; text-align:center; color:var(--slate-soft); font-size:13px; }
+
+  /* record payment panel */
+  .overlay{ position:fixed; inset:0; background:rgba(22,35,61,0.35); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:20; }
+  .overlay.show{ opacity:1; pointer-events:auto; }
+  .panel{ position:fixed; top:0; right:0; bottom:0; width:400px; max-width:92vw; background:var(--paper-card); box-shadow:-8px 0 30px rgba(22,35,61,0.15); transform:translateX(100%); transition:transform .25s ease; z-index:21; display:flex; flex-direction:column; }
+  .panel.show{ transform:translateX(0); }
+  .panel-head{ padding:22px 24px 16px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:flex-start; }
+  .panel-head h3{ font-family:'Source Serif 4', serif; font-size:19px; font-weight:600; }
+  .panel-head p{ font-size:12.5px; color:var(--slate-soft); margin-top:4px; }
+  .panel-close{ cursor:pointer; color:var(--slate-soft); font-size:16px; padding:2px 6px; }
+  .panel-close:hover{ color:var(--ink); }
+  .panel-body{ padding:20px 24px; overflow-y:auto; flex:1; }
+  .panel-foot{ padding:16px 24px 22px; border-top:1px solid var(--line); }
+  .field{ margin-bottom:15px; }
+  .field label{ display:block; font-size:12px; font-weight:600; color:var(--slate); margin-bottom:6px; }
+  .field input, .field select{ width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:'Inter', sans-serif; color:var(--ink); background:var(--paper-card); outline:none; }
+  .field input:focus, .field select:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+  .field-row{ display:flex; gap:12px; }
+  .field-row .field{ flex:1; }
+  .balance-note{ background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:11px 13px; font-size:12px; color:var(--slate-soft); line-height:1.55; margin-bottom:16px; }
+  .allocation-note{ background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:11px 13px; font-size:12px; color:var(--slate-soft); line-height:1.55; }
+  .required-mark{ color:var(--rust); font-size:11px; font-weight:600; }
+  .field textarea{ width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:'Inter', sans-serif; color:var(--ink); background:var(--paper-card); outline:none; resize:vertical; min-height:70px; }
+  .field textarea:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+  .field-error{ font-size:11.5px; color:var(--rust); margin-top:5px; display:none; }
+
+  /* receipt modal */
+  .receipt-overlay{ position:fixed; inset:0; background:rgba(22,35,61,0.45); display:none; align-items:center; justify-content:center; z-index:30; }
+  .receipt-overlay.show{ display:flex; }
+  .receipt-modal{ background:#fff; width:400px; max-width:92vw; border-radius:14px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.25); }
+  .receipt-modal-head{ display:flex; justify-content:flex-end; padding:10px 14px 0; }
+  .receipt-close{ cursor:pointer; color:var(--slate-soft); font-size:16px; }
+  #receiptPrintArea{ padding:8px 32px 32px; }
+  .receipt-brand{ text-align:center; margin-bottom:18px; }
+  .receipt-brand .rb-mark{ font-family:'Source Serif 4', serif; font-weight:700; font-size:20px; color:var(--ink); }
+  .receipt-brand .rb-sub{ font-size:11px; color:var(--slate-soft); margin-top:2px; }
+  .receipt-title{ text-align:center; font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.15em; color:var(--slate-soft); margin-bottom:18px; border-top:1px dashed var(--line); border-bottom:1px dashed var(--line); padding:10px 0; }
+  .receipt-row{ display:flex; justify-content:space-between; font-size:12.5px; padding:6px 0; }
+  .receipt-row .rl{ color:var(--slate-soft); }
+  .receipt-row .rv{ font-weight:600; color:var(--ink); text-align:right; }
+  .receipt-amount{ text-align:center; margin:18px 0; padding:16px; background:var(--paper); border-radius:10px; }
+  .receipt-amount .ra-label{ font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; }
+  .receipt-amount .ra-value{ font-family:'Source Serif 4', serif; font-size:28px; font-weight:700; color:var(--success); margin-top:4px; }
+  .receipt-foot{ text-align:center; font-size:10.5px; color:var(--slate-soft); margin-top:16px; border-top:1px dashed var(--line); padding-top:12px; }
+  .receipt-actions{ display:flex; gap:10px; padding:0 32px 28px; }
+  .receipt-actions button{ flex:1; padding:10px 0; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
+  .receipt-print-btn{ background:var(--ink); color:#fff; border:none; }
+  .receipt-print-btn:hover{ background:var(--slate); }
+  .receipt-close-btn{ background:var(--paper-card); color:var(--slate); border:1px solid var(--line); }
+
+  @media print{
+    body *{ visibility:hidden; }
+    #receiptPrintArea, #receiptPrintArea *{ visibility:visible; }
+    #receiptPrintArea{ position:absolute; top:0; left:0; width:100%; padding:20px; }
+  }
+  .balance-note b{ color:var(--rust); }
+
+  .mode-toggle{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .mode-toggle div{ flex:1; text-align:center; padding:9px 0; font-size:12.5px; font-weight:600; color:var(--slate-soft); cursor:pointer; }
+  .mode-toggle div.sel{ background:var(--ink); color:#fff; }
+  .mode-toggle div:first-child{ border-right:1px solid var(--line); }
+
+  .split-table{ border:1px solid var(--line); border-radius:9px; overflow:hidden; margin-bottom:8px; }
+  .split-row{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--line); }
+  .split-row:last-child{ border-bottom:none; }
+  .split-name{ flex:1; font-size:12.5px; }
+  .split-name .n{ font-weight:600; }
+  .split-name .b{ font-size:11px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; }
+  .split-row input{ width:110px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; font-family:'IBM Plex Mono', monospace; text-align:right; outline:none; }
+  .split-row input:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+  .split-remaining{ font-size:11.5px; text-align:right; font-family:'IBM Plex Mono', monospace; font-weight:600; padding:2px 2px 4px; }
+  .split-remaining.ok{ color:var(--success); }
+  .split-remaining.bad{ color:var(--rust); }
+
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:11px 20px; border-radius:8px; font-size:12.5px; font-weight:500; opacity:0; pointer-events:none; transition:all .25s ease; z-index:99; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand"><div class="brand-mark">S</div><div class="brand-name">Schoolbook</div></div>
+    <div class="nav-section-label">Overview</div>
+    <a class="nav-item" href="06-dashboard.html"><span class="nav-icon">◧</span>Dashboard</a>
+    <div class="nav-section-label">Records</div>
+    <a class="nav-item" href="04-students.html"><span class="nav-icon">☺</span>Students</a>
+    <a class="nav-item active" href="07-payments.html"><span class="nav-icon">✎</span>Payments</a>
+    <a class="nav-item" href="10-class-register.html"><span class="nav-icon">▤</span>Class Register</a>
+    <a class="nav-item" href="11-promotion.html"><span class="nav-icon">↑</span>Promotion</a>
+    <a class="nav-item" href="08-reports.html"><span class="nav-icon">▦</span>Reports</a>
+    <div class="nav-section-label">Configuration</div>
+    <a class="nav-item" href="09-settings.html"><span class="nav-icon">⚙</span>Settings</a>
+    <a class="nav-item" href="12-audit-log.html"><span class="nav-icon">🕐</span>Audit Log</a>
+    <div class="sidebar-foot">
+      <div class="school-avatar">B</div>
+      <div class="school-meta"><div class="name">Bright Path College</div><div class="role">Admin</div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h1>Payments</h1>
+      <div class="session-pill"><span class="dot"></span>2025/2026 · Term 1</div>
+    </div>
+
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <div class="eyebrow">Records</div>
+          <h2>Payment log</h2>
+          <p>Every payment recorded across the school, most recent first. Filter by date, class, or method — or find a specific student and record a new one.</p>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <a href="10-class-register.html" style="text-decoration:none; padding:10px 16px; background:var(--paper-card); color:var(--slate); border:1px solid var(--line); border-radius:8px; font-size:13px; font-weight:600;">Treat by class →</a>
+          <button class="btn-ghost" onclick="exportPayments()">Export CSV</button>
+          <button class="btn-primary" onclick="openPanel()">+ Record payment</button>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="label">Showing</div>
+          <div class="value" id="statCount">0</div>
+          <div class="sub">payments in current filter</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Total in filter</div>
+          <div class="value" id="statTotal">₦0</div>
+          <div class="sub">sum of amounts shown</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Today's collections</div>
+          <div class="value">₦73,000</div>
+          <div class="sub">2 payments recorded today</div>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <select id="filterLevel" onchange="renderTable()">
+          <option value="all">All classes</option>
+          <option>Kindergarten</option><option>Primary 4</option><option>JSS2</option>
+          <option>SS1</option><option>SS2</option><option>SS3</option>
+        </select>
+        <select id="filterMethod" onchange="renderTable()">
+          <option value="all">All methods</option>
+          <option>Cash</option>
+          <option>Bank transfer</option>
+          <option>POS</option>
+        </select>
+        <select id="filterDate" onchange="renderTable()">
+          <option value="all">All time</option>
+          <option value="today">Today</option>
+          <option value="week">This week</option>
+          <option value="term">This term</option>
+        </select>
+        <input type="text" id="searchInput" placeholder="Search by student, receipt no…" oninput="renderTable()">
+      </div>
+
+      <div class="result-count" id="resultCount"></div>
+
+      <div class="table-wrap">
+        <div class="t-row head">
+          <div class="col-date">Date</div>
+          <div class="col-student">Student</div>
+          <div class="col-fee">Fee item</div>
+          <div class="col-method">Method</div>
+          <div class="col-receipt">Receipt</div>
+          <div class="col-amt">Amount</div>
+          <div class="col-void-action"></div>
+        </div>
+        <div id="tableBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECORD PAYMENT PANEL -->
+  <div class="overlay" id="overlay" onclick="closePanel()"></div>
+  <div class="panel" id="panel">
+    <div class="panel-head">
+      <div>
+        <h3>Record a payment</h3>
+        <p id="panelSub">Search for a student to see their outstanding balance first.</p>
+      </div>
+      <div class="panel-close" onclick="closePanel()">✕</div>
+    </div>
+    <div class="panel-body">
+      <div class="field">
+        <label>Payment for</label>
+        <div class="mode-toggle">
+          <div id="modeSingleBtn" class="sel" onclick="setMode('single')">One student</div>
+          <div id="modeHouseholdBtn" onclick="setMode('household')">Whole household (split)</div>
+        </div>
+      </div>
+
+      <!-- SINGLE STUDENT MODE -->
+      <div id="singleMode">
+        <div class="field">
+          <label>Student</label>
+          <select id="pStudent" onchange="onStudentChange()">
+            <option value="">Select a student…</option>
+            <option value="Adaeze Okafor|SS3 A|127000">Adaeze Okafor — SS3 A</option>
+            <option value="Fatima Sule|SS3 B|40000">Fatima Sule — SS3 B</option>
+            <option value="Emeka Nwosu|JSS2 A|50000">Emeka Nwosu — JSS2 A</option>
+            <option value="Blessing Etim|Primary 4 A|0">Blessing Etim — Primary 4 A</option>
+          </select>
+        </div>
+        <div class="balance-note" id="balanceNote" style="display:none;"></div>
+
+        <div class="field">
+          <label>Amount received</label>
+          <input type="number" id="pAmount" placeholder="e.g. 40000">
+        </div>
+      </div>
+
+      <!-- HOUSEHOLD SPLIT MODE -->
+      <div id="householdMode" style="display:none;">
+        <div class="field">
+          <label>Household</label>
+          <select id="pHousehold" onchange="onHouseholdChange()">
+            <option value="">Select a household…</option>
+            <option value="okafor">Okafor household — 3 children</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Total amount received</label>
+          <input type="number" id="pHouseholdTotal" placeholder="e.g. 300000" oninput="suggestSplit()">
+        </div>
+
+        <div class="field" style="margin-bottom:8px;">
+          <label>Split across children</label>
+        </div>
+        <div class="split-table" id="splitTable"></div>
+        <div class="split-remaining" id="splitRemaining"></div>
+      </div>
+
+      <div class="field-row" style="margin-top:15px;">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="pDate" value="2026-07-14">
+        </div>
+        <div class="field">
+          <label>Method</label>
+          <select id="pMethod">
+            <option>Bank transfer</option>
+            <option>Cash</option>
+            <option>POS</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Receipt number</label>
+        <input type="text" id="pReceipt" placeholder="e.g. RCT-2217">
+      </div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn-primary" style="width:100%;" onclick="savePayment()">Record payment</button>
+    </div>
+  </div>
+
+  <!-- VOID PAYMENT PANEL -->
+  <div class="overlay" id="voidOverlay" onclick="closeVoidPanel()"></div>
+  <div class="panel" id="voidPanel">
+    <div class="panel-head">
+      <div>
+        <h3>Void this payment</h3>
+        <p id="voidSub">Correcting an entry mistake</p>
+      </div>
+      <div class="panel-close" onclick="closeVoidPanel()">✕</div>
+    </div>
+    <div class="panel-body">
+      <div class="allocation-note" style="border-color:var(--rust); background:var(--rust-bg);">
+        Voiding never deletes the record — it stays visible, struck through, with the reason attached. The amount is added back to the student's outstanding balance.
+      </div>
+      <div class="field" style="margin-top:16px;">
+        <label>Reason <span class="required-mark">*required</span></label>
+        <textarea id="voidReason" placeholder="e.g. Entered against the wrong student — correct payment recorded separately."></textarea>
+        <div class="field-error" id="voidReasonError">A reason is required before a payment can be voided.</div>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn-primary" style="width:100%; background:var(--rust);" onclick="confirmVoid()">Confirm void</button>
+    </div>
+  </div>
+
+  <!-- RECEIPT MODAL -->
+  <div class="receipt-overlay" id="receiptOverlay" onclick="if(event.target===this) closeReceipt()">
+    <div class="receipt-modal">
+      <div class="receipt-modal-head"><span class="receipt-close" onclick="closeReceipt()">✕</span></div>
+      <div id="receiptPrintArea">
+        <div class="receipt-brand">
+          <div class="rb-mark">Bright Path College</div>
+          <div class="rb-sub">12 Adeola Street, Lagos · Payment Receipt</div>
+        </div>
+        <div class="receipt-title" id="receiptNo">RECEIPT · RCT-0000</div>
+        <div class="receipt-row"><div class="rl">Date</div><div class="rv" id="rDate">—</div></div>
+        <div class="receipt-row"><div class="rl">Student</div><div class="rv" id="rStudent">—</div></div>
+        <div class="receipt-row"><div class="rl">Class</div><div class="rv" id="rClass">—</div></div>
+        <div class="receipt-row"><div class="rl">Fee item</div><div class="rv" id="rFee">—</div></div>
+        <div class="receipt-row"><div class="rl">Payment method</div><div class="rv" id="rMethod">—</div></div>
+        <div class="receipt-amount">
+          <div class="ra-label">Amount received</div>
+          <div class="ra-value" id="rAmount">₦0</div>
+        </div>
+        <div class="receipt-foot">Received by Admin, Bright Path College · Thank you</div>
+      </div>
+      <div class="receipt-actions">
+        <button class="receipt-close-btn" onclick="closeReceipt()">Close</button>
+        <button class="receipt-print-btn" onclick="window.print()">Print receipt</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Saved</div>
+
+<script>
+  let payments = [
+    { id:1, date:"2026-07-14", name:"Adaeze Okafor", cls:"SS3 A", fee:"School Fees", method:"Bank transfer", receipt:"RCT-2216", amount:65000, voided:false },
+    { id:2, date:"2026-07-14", name:"Fatima Sule", cls:"SS3 B", fee:"Admission Form", method:"Cash", receipt:"RCT-2215", amount:8000, voided:false },
+    { id:3, date:"2026-07-12", name:"Emeka Nwosu", cls:"JSS2 A", fee:"School Fees", method:"POS", receipt:"RCT-2201", amount:50000, voided:false },
+    { id:4, date:"2026-07-10", name:"Blessing Etim", cls:"Primary 4 A", fee:"Uniform", method:"Cash", receipt:"RCT-2188", amount:18000, voided:false },
+    { id:5, date:"2026-07-08", name:"Chinedu Bassey", cls:"SS3 A", fee:"School Fees", method:"Bank transfer", receipt:"RCT-2177", amount:150000, voided:false },
+    { id:6, date:"2026-04-18", name:"Adaeze Okafor", cls:"SS3 A", fee:"Sportwear", method:"Cash", receipt:"RCT-2144", amount:8000, voided:false },
+    { id:7, date:"2024-11-30", name:"Adaeze Okafor", cls:"SS1 A", fee:"School Fees (arrears)", method:"Bank transfer", receipt:"RCT-1876", amount:68000, voided:false },
+  ];
+  function exportToCSV(filename, headers, rows){
+    const escape = v => `"${String(v).replace(/"/g,'""')}"`;
+    const csv = [headers.map(escape).join(',')]
+      .concat(rows.map(r => r.map(escape).join(',')))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportPayments(){
+    const level = document.getElementById('filterLevel').value;
+    const method = document.getElementById('filterMethod').value;
+    const range = document.getElementById('filterDate').value;
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const filtered = payments.filter(p => {
+      if(level !== 'all' && !p.cls.startsWith(level)) return false;
+      if(method !== 'all' && p.method !== method) return false;
+      if(!inRange(p.date, range)) return false;
+      if(q && !(p.name.toLowerCase().includes(q) || p.receipt.toLowerCase().includes(q))) return false;
+      return true;
+    });
+    exportToCSV(
+      `payments-export-2026-07-14.csv`,
+      ['Date', 'Student', 'Class', 'Fee Item', 'Method', 'Receipt No', 'Amount', 'Status'],
+      filtered.map(p => [p.date, p.name, p.cls, p.fee, p.method, p.receipt, p.amount, p.voided ? 'Voided' : 'Recorded'])
+    );
+  }
+
+  function openReceipt(id){
+    const p = payments.find(pp => pp.id === id);
+    document.getElementById('receiptNo').textContent = `RECEIPT · ${p.receipt}`;
+    document.getElementById('rDate').textContent = p.date;
+    document.getElementById('rStudent').textContent = p.name;
+    document.getElementById('rClass').textContent = p.cls;
+    document.getElementById('rFee').textContent = p.fee;
+    document.getElementById('rMethod').textContent = p.method;
+    document.getElementById('rAmount').textContent = `₦${p.amount.toLocaleString()}`;
+    document.getElementById('receiptOverlay').classList.add('show');
+  }
+  function closeReceipt(){
+    document.getElementById('receiptOverlay').classList.remove('show');
+  }
+
+  let nextPaymentId = 8;
+
+  let voidingId = null;
+
+  function openVoidPanel(id){
+    voidingId = id;
+    const p = payments.find(pp => pp.id === id);
+    document.getElementById('voidSub').textContent = `${p.name} · ₦${p.amount.toLocaleString()} · ${p.receipt}`;
+    document.getElementById('voidReason').value = '';
+    document.getElementById('voidReasonError').style.display = 'none';
+    document.getElementById('voidOverlay').classList.add('show');
+    document.getElementById('voidPanel').classList.add('show');
+  }
+  function closeVoidPanel(){
+    document.getElementById('voidOverlay').classList.remove('show');
+    document.getElementById('voidPanel').classList.remove('show');
+  }
+  function confirmVoid(){
+    const reason = document.getElementById('voidReason').value.trim();
+    const errorBox = document.getElementById('voidReasonError');
+    if(!reason){
+      errorBox.style.display = 'block';
+      document.getElementById('voidReason').focus();
+      return;
+    }
+    errorBox.style.display = 'none';
+    const p = payments.find(pp => pp.id === voidingId);
+    p.voided = true;
+    p.voidReason = reason;
+    renderTable();
+    closeVoidPanel();
+    showToast(`Payment voided — ₦${p.amount.toLocaleString()} added back to ${p.name}'s balance`);
+  }
+
+  const households = {
+    okafor: {
+      name: "Okafor household",
+      children: [
+        { name:"Adaeze Okafor", cls:"SS3 A", balance:127000 },
+        { name:"Chidi Okafor", cls:"Primary 5 A", balance:95000 },
+        { name:"Ngozi Okafor", cls:"Primary 1 A", balance:78000 },
+      ]
+    }
+  };
+
+  function setMode(mode){
+    document.getElementById('modeSingleBtn').className = mode === 'single' ? 'sel' : '';
+    document.getElementById('modeHouseholdBtn').className = mode === 'household' ? 'sel' : '';
+    document.getElementById('singleMode').style.display = mode === 'single' ? 'block' : 'none';
+    document.getElementById('householdMode').style.display = mode === 'household' ? 'block' : 'none';
+    document.getElementById('panelSub').textContent = mode === 'single'
+      ? 'Search for a student to see their outstanding balance first.'
+      : 'Pick a household to see every linked child and split one payment across them.';
+  }
+
+  function onHouseholdChange(){
+    const key = document.getElementById('pHousehold').value;
+    const table = document.getElementById('splitTable');
+    if(!key){ table.innerHTML = ''; document.getElementById('splitRemaining').textContent = ''; return; }
+    const hh = households[key];
+    table.innerHTML = hh.children.map((c, i) => `
+      <div class="split-row">
+        <div class="split-name"><div class="n">${c.name}</div><div class="b">${c.cls} · owes ₦${c.balance.toLocaleString()}</div></div>
+        <input type="number" id="split-${i}" value="0" oninput="updateRemaining()">
+      </div>
+    `).join('');
+    updateRemaining();
+  }
+
+  function suggestSplit(){
+    const key = document.getElementById('pHousehold').value;
+    if(!key) return;
+    const total = parseInt(document.getElementById('pHouseholdTotal').value) || 0;
+    const hh = households[key];
+    const totalOwed = hh.children.reduce((s,c) => s + c.balance, 0);
+    hh.children.forEach((c, i) => {
+      const share = totalOwed > 0 ? Math.round(total * (c.balance / totalOwed)) : 0;
+      document.getElementById('split-' + i).value = share;
+    });
+    updateRemaining();
+  }
+
+  function updateRemaining(){
+    const key = document.getElementById('pHousehold').value;
+    if(!key) return;
+    const hh = households[key];
+    const total = parseInt(document.getElementById('pHouseholdTotal').value) || 0;
+    let allocated = 0;
+    hh.children.forEach((c, i) => { allocated += parseInt(document.getElementById('split-' + i).value) || 0; });
+    const remaining = total - allocated;
+    const box = document.getElementById('splitRemaining');
+    if(remaining === 0){
+      box.className = 'split-remaining ok';
+      box.textContent = 'Fully allocated ✓';
+    } else {
+      box.className = 'split-remaining bad';
+      box.textContent = remaining > 0 ? `₦${remaining.toLocaleString()} not yet allocated` : `₦${Math.abs(remaining).toLocaleString()} over-allocated`;
+    }
+  }
+
+  function inRange(dateStr, range){
+    if(range === 'all') return true;
+    const d = new Date(dateStr);
+    const today = new Date("2026-07-14");
+    const diffDays = (today - d) / (1000*60*60*24);
+    if(range === 'today') return diffDays === 0;
+    if(range === 'week') return diffDays >= 0 && diffDays <= 7;
+    if(range === 'term') return d >= new Date("2026-05-01");
+    return true;
+  }
+
+  function renderTable(){
+    const level = document.getElementById('filterLevel').value;
+    const method = document.getElementById('filterMethod').value;
+    const range = document.getElementById('filterDate').value;
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+
+    const filtered = payments.filter(p => {
+      if(level !== 'all' && !p.cls.startsWith(level)) return false;
+      if(method !== 'all' && p.method !== method) return false;
+      if(!inRange(p.date, range)) return false;
+      if(q && !(p.name.toLowerCase().includes(q) || p.receipt.toLowerCase().includes(q))) return false;
+      return true;
+    }).sort((a,b) => new Date(b.date) - new Date(a.date));
+
+    document.getElementById('resultCount').textContent = `${filtered.length} payment${filtered.length !== 1 ? 's' : ''}`;
+    document.getElementById('statCount').textContent = filtered.length;
+    document.getElementById('statTotal').textContent = '₦' + filtered.filter(p => !p.voided).reduce((s,p) => s+p.amount, 0).toLocaleString();
+
+    const body = document.getElementById('tableBody');
+    if(filtered.length === 0){
+      body.innerHTML = `<div class="empty-note">No payments match this filter.</div>`;
+      return;
+    }
+    body.innerHTML = filtered.map(p => `
+      <div class="t-row ${p.voided ? 'voided-row' : ''}">
+        <div class="col-date">${p.date}</div>
+        <div class="col-student"><div class="n">${p.name}</div><div class="c">${p.cls}</div></div>
+        <div class="col-fee">${p.fee}${p.voided ? `<div class="void-reason">Voided: "${p.voidReason}"</div>` : ''}</div>
+        <div class="col-method"><span class="method-tag">${p.method}</span></div>
+        <div class="col-receipt">${p.receipt}</div>
+        <div class="col-amt">${p.voided ? `<span class="voided-amt">₦${p.amount.toLocaleString()}</span>` : `+₦${p.amount.toLocaleString()}`}</div>
+        <div class="col-void-action">${p.voided ? `<span class="void-tag">VOIDED</span>` : `<span class="void-link" style="color:var(--slate);" onclick="openReceipt(${p.id})">Receipt</span><br><span class="void-link" onclick="openVoidPanel(${p.id})">Void</span>`}</div>
+      </div>
+    `).join('');
+  }
+
+  function onStudentChange(){
+    const val = document.getElementById('pStudent').value;
+    const note = document.getElementById('balanceNote');
+    if(!val){ note.style.display = 'none'; return; }
+    const [name, cls, bal] = val.split('|');
+    const balance = parseInt(bal);
+    note.style.display = 'block';
+    note.innerHTML = balance > 0
+      ? `${name} (${cls}) currently owes <b>₦${balance.toLocaleString()}</b>. This payment will be applied to the oldest outstanding balance first.`
+      : `${name} (${cls}) has no outstanding balance right now.`;
+  }
+
+  function openPanel(){
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('panel').classList.add('show');
+    setMode('single');
+  }
+  function closePanel(){
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('panel').classList.remove('show');
+  }
+
+  function savePayment(){
+    const isHousehold = document.getElementById('modeHouseholdBtn').className === 'sel';
+
+    if(isHousehold){
+      const key = document.getElementById('pHousehold').value;
+      if(!key){ showToast('Select a household first'); return; }
+      const hh = households[key];
+      const date = document.getElementById('pDate').value || '2026-07-14';
+      const method = document.getElementById('pMethod').value;
+      const receipt = document.getElementById('pReceipt').value || '—';
+      let count = 0, sum = 0;
+      hh.children.forEach((c, i) => {
+        const amt = parseInt(document.getElementById('split-' + i).value) || 0;
+        if(amt > 0){
+          payments.unshift({ id: nextPaymentId++, date, name:c.name, cls:c.cls, fee:"School Fees (household split)", method, receipt, amount:amt, voided:false });
+          count++; sum += amt;
+        }
+      });
+      if(count === 0){ showToast('Allocate at least one amount'); return; }
+      renderTable();
+      closePanel();
+      showToast(`₦${sum.toLocaleString()} split across ${count} ${hh.name} children`);
+      document.getElementById('pHouseholdTotal').value = '';
+      document.getElementById('pHousehold').value = '';
+      document.getElementById('splitTable').innerHTML = '';
+      document.getElementById('splitRemaining').textContent = '';
+      return;
+    }
+
+    const studentVal = document.getElementById('pStudent').value;
+    const amount = parseInt(document.getElementById('pAmount').value) || 0;
+    if(!studentVal){ showToast('Select a student first'); return; }
+    if(amount <= 0){ showToast('Enter a valid amount'); return; }
+    const [name, cls] = studentVal.split('|');
+    const newId = nextPaymentId++;
+    payments.unshift({
+      id: newId,
+      date: document.getElementById('pDate').value || '2026-07-14',
+      name, cls,
+      fee: "School Fees",
+      method: document.getElementById('pMethod').value,
+      receipt: document.getElementById('pReceipt').value || '—',
+      amount,
+      voided: false
+    });
+    renderTable();
+    closePanel();
+    showToast(`₦${amount.toLocaleString()} recorded for ${name}`);
+    openReceipt(newId);
+    document.getElementById('pAmount').value = '';
+    document.getElementById('pReceipt').value = '';
+    document.getElementById('pStudent').value = '';
+    document.getElementById('balanceNote').style.display = 'none';
+  }
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  renderTable();
+
+  // If arriving from a student profile's "Pay for whole family" link, open
+  // straight into household split mode for that family.
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('household')){
+    openPanel();
+    setMode('household');
+    document.getElementById('pHousehold').value = params.get('household');
+    onHouseholdChange();
+  }
+</script>
+
+</body>
+</html>

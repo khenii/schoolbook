@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Schoolbook — Class Register</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16233D; --slate:#2F4468; --slate-soft:#5B6E90;
+    --gold:#B98B3E; --gold-soft:#E4C88A;
+    --paper:#F4F5F8; --paper-card:#FFFFFF; --line:#DCE0E9;
+    --success:#3A7D5C; --success-bg:#E9F3EE;
+    --rust:#B84C3E; --rust-bg:#FBEBE9;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink); display:flex; min-height:100vh; -webkit-font-smoothing:antialiased; }
+
+  .sidebar{ width:230px; flex-shrink:0; background:var(--ink); color:#fff; display:flex; flex-direction:column; padding:22px 16px; }
+  .brand{ display:flex; align-items:center; gap:10px; padding:0 6px 24px; }
+  .brand-mark{ width:30px; height:30px; border:1.5px solid var(--gold-soft); border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:700; font-size:14px; color:var(--gold-soft); flex-shrink:0; }
+  .brand-name{ font-family:'Source Serif 4', serif; font-weight:600; font-size:16.5px; }
+  .nav-section-label{ font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#7C89A6; padding:14px 10px 8px; }
+  .nav-item{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px; font-size:13.5px; font-weight:500; color:#C4CCDE; cursor:pointer; margin-bottom:2px; transition:background .12s ease, color .12s ease; text-decoration:none; }
+  .nav-item:hover{ background:rgba(255,255,255,0.06); color:#fff; }
+  .nav-item.active{ background:var(--slate); color:#fff; font-weight:600; }
+  .nav-icon{ width:16px; text-align:center; font-size:13px; flex-shrink:0; }
+  .sidebar-foot{ margin-top:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:14px; display:flex; align-items:center; gap:9px; }
+  .school-avatar{ width:30px; height:30px; border-radius:8px; background:var(--slate); display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:600; font-size:13px; }
+  .school-meta{ line-height:1.3; }
+  .school-meta .name{ font-size:12.5px; font-weight:600; }
+  .school-meta .role{ font-size:10.5px; color:#8895AF; }
+
+  .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .topbar{ height:64px; flex-shrink:0; background:var(--paper-card); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; padding:0 28px; }
+  .topbar h1{ font-family:'Source Serif 4', serif; font-size:19px; font-weight:600; }
+  .session-pill{ display:flex; align-items:center; gap:8px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:600; color:var(--slate); font-family:'IBM Plex Mono', monospace; }
+  .session-pill .dot{ width:6px; height:6px; border-radius:50%; background:var(--success); }
+
+  .content{ padding:28px 32px 60px; overflow-y:auto; }
+  .page-head{ margin-bottom:18px; }
+  .page-head .eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--slate-soft); margin-bottom:6px; }
+  .page-head h2{ font-family:'Source Serif 4', serif; font-size:24px; font-weight:600; }
+  .page-head p{ font-size:13px; color:var(--slate-soft); margin-top:4px; max-width:560px; }
+
+  .selector-bar{ display:flex; gap:10px; align-items:center; margin-bottom:18px; flex-wrap:wrap; background:var(--paper-card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .selector-group{ display:flex; flex-direction:column; gap:5px; }
+  .selector-group label{ font-size:10px; font-weight:600; color:var(--slate-soft); text-transform:uppercase; letter-spacing:0.05em; font-family:'IBM Plex Mono', monospace; }
+  .selector-group select{ padding:8px 11px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink); outline:none; min-width:140px; }
+  .selector-group select:focus{ border-color:var(--slate); }
+  .selector-divider{ width:1px; height:36px; background:var(--line); margin:0 4px; }
+
+  .summary-strip{ display:flex; gap:14px; margin-bottom:18px; }
+  .sstat{ flex:1; background:var(--paper-card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .sstat .label{ font-family:'IBM Plex Mono', monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--slate-soft); margin-bottom:6px; }
+  .sstat .value{ font-family:'Source Serif 4', serif; font-size:20px; font-weight:600; }
+  .sstat.rust .value{ color:var(--rust); }
+  .sstat.success .value{ color:var(--success); }
+
+  .register-wrap{ background:var(--paper-card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .r-row{ display:flex; align-items:center; padding:11px 16px; border-bottom:1px solid var(--line); font-size:12.5px; gap:12px; }
+  .r-row:last-child{ border-bottom:none; }
+  .r-row.head{ background:var(--paper); font-family:'IBM Plex Mono', monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--slate-soft); font-weight:600; padding:10px 16px; }
+  .r-row:not(.head):hover{ background:#FAFBFC; }
+  .r-row.fully-paid{ background:#FCFEFC; }
+  .col-num{ width:26px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; font-size:11px; flex-shrink:0; }
+  .col-student{ flex:1.6; min-width:0; }
+  .col-student .n{ font-weight:600; }
+  .col-student .c{ font-size:11px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; }
+  .col-charged{ flex:0.9; text-align:right; font-family:'IBM Plex Mono', monospace; color:var(--slate-soft); }
+  .col-paid{ flex:0.9; text-align:right; font-family:'IBM Plex Mono', monospace; color:var(--slate); font-weight:600; }
+  .col-balance{ flex:0.9; text-align:right; }
+  .bal-tag{ font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:700; padding:3px 9px; border-radius:6px; }
+  .bal-tag.owed{ background:var(--rust-bg); color:var(--rust); }
+  .bal-tag.clear{ background:var(--success-bg); color:var(--success); }
+  .col-entry{ flex:1.4; display:flex; gap:6px; align-items:center; justify-content:flex-end; }
+  .col-entry input{ width:100px; padding:7px 9px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; font-family:'IBM Plex Mono', monospace; text-align:right; outline:none; }
+  .col-entry input:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+  .fill-btn{ font-size:10.5px; font-weight:600; color:var(--slate); background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:6px 8px; cursor:pointer; white-space:nowrap; }
+  .fill-btn:hover{ background:var(--line); }
+  .add-btn{ font-size:11.5px; font-weight:700; color:#fff; background:var(--success); border:none; border-radius:6px; padding:7px 12px; cursor:pointer; white-space:nowrap; }
+  .add-btn:hover{ background:#2E6349; }
+  .paid-flash{ animation: flashGreen 0.9s ease; }
+  @keyframes flashGreen{ 0%{ background:var(--success-bg); } 100%{ background:transparent; } }
+
+  .totals-row{ display:flex; align-items:center; padding:12px 16px; background:var(--paper); border-top:2px solid var(--line); font-size:12.5px; font-weight:700; gap:12px; }
+  .totals-row .col-student{ color:var(--slate); }
+  .totals-row .col-charged{ color:var(--ink); }
+  .totals-row .col-paid{ color:var(--success); }
+  .totals-row .col-balance{ color:var(--rust); text-align:right; }
+
+  .empty-note{ padding:40px 20px; text-align:center; color:var(--slate-soft); font-size:13px; }
+
+  .pagination-bar{ display:flex; align-items:center; justify-content:center; gap:6px; margin-top:16px; flex-wrap:wrap; }
+  .page-btn{ min-width:32px; height:32px; padding:0 10px; border:1px solid var(--line); background:var(--paper-card); border-radius:7px; font-size:12.5px; font-weight:600; color:var(--slate); cursor:pointer; font-family:'IBM Plex Mono', monospace; }
+  .page-btn:hover:not(:disabled){ background:var(--paper); }
+  .page-btn.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .page-btn:disabled{ opacity:0.4; cursor:default; }
+  .page-ellipsis{ color:var(--slate-soft); font-size:12.5px; padding:0 4px; }
+
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:11px 20px; border-radius:8px; font-size:12.5px; font-weight:500; opacity:0; pointer-events:none; transition:all .25s ease; z-index:99; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand"><div class="brand-mark">S</div><div class="brand-name">Schoolbook</div></div>
+    <div class="nav-section-label">Overview</div>
+    <a class="nav-item" href="06-dashboard.html"><span class="nav-icon">◧</span>Dashboard</a>
+    <div class="nav-section-label">Records</div>
+    <a class="nav-item" href="04-students.html"><span class="nav-icon">☺</span>Students</a>
+    <a class="nav-item" href="07-payments.html"><span class="nav-icon">✎</span>Payments</a>
+    <a class="nav-item active" href="10-class-register.html"><span class="nav-icon">▤</span>Class Register</a>
+    <a class="nav-item" href="11-promotion.html"><span class="nav-icon">↑</span>Promotion</a>
+    <a class="nav-item" href="08-reports.html"><span class="nav-icon">▦</span>Reports</a>
+    <div class="nav-section-label">Configuration</div>
+    <a class="nav-item" href="09-settings.html"><span class="nav-icon">⚙</span>Settings</a>
+    <a class="nav-item" href="12-audit-log.html"><span class="nav-icon">🕐</span>Audit Log</a>
+    <div class="sidebar-foot">
+      <div class="school-avatar">B</div>
+      <div class="school-meta"><div class="name">Bright Path College</div><div class="role">Admin</div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h1>Class Register</h1>
+      <div class="session-pill"><span class="dot"></span>2025/2026 · Term 1</div>
+    </div>
+
+    <div class="content">
+      <div class="page-head">
+        <div class="eyebrow">Records</div>
+        <h2>Treat payments class by class</h2>
+        <p>Pick a class and a fee item, then work down the list recording payments — like a paper register, but it updates every student's balance as you go.</p>
+      </div>
+
+      <div class="selector-bar">
+        <div class="selector-group">
+          <label>Class level</label>
+          <select id="selLevel" onchange="onLevelChange()"></select>
+        </div>
+        <div class="selector-group">
+          <label>Arm</label>
+          <select id="selArm" onchange="onFilterChange()"></select>
+        </div>
+        <div class="selector-divider"></div>
+        <div class="selector-group">
+          <label>Fee item</label>
+          <select id="selFee" onchange="onFilterChange()"></select>
+        </div>
+      </div>
+
+      <div class="summary-strip" id="summaryStrip"></div>
+
+      <div class="register-wrap">
+        <div class="r-row head">
+          <div class="col-num">#</div>
+          <div class="col-student">Student</div>
+          <div class="col-charged">Charged</div>
+          <div class="col-paid">Paid</div>
+          <div class="col-balance">Balance</div>
+          <div class="col-entry">Record a payment</div>
+        </div>
+        <div id="registerBody"></div>
+      </div>
+
+      <div class="pagination-bar" id="paginationBar"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Saved</div>
+
+<script>
+  const classData = [
+    { name:"Kindergarten", arms:["A"] }, { name:"Nursery 1", arms:["A"] }, { name:"Nursery 2", arms:["A"] },
+    { name:"Primary 1", arms:["A","B"] }, { name:"Primary 2", arms:["A","B"] }, { name:"Primary 3", arms:["A"] },
+    { name:"Primary 4", arms:["A"] }, { name:"Primary 5", arms:["A"] }, { name:"Primary 6", arms:["A"] },
+    { name:"JSS1", arms:["A","B","C"] }, { name:"JSS2", arms:["A","B"] }, { name:"JSS3", arms:["A"] },
+    { name:"SS1", arms:["A","B"] }, { name:"SS2", arms:["A","B"] }, { name:"SS3", arms:["A","B","C"] },
+  ];
+
+  const feePerLevel = { "Kindergarten":80000,"Nursery 1":80000,"Nursery 2":85000,"Primary 1":95000,"Primary 2":95000,
+    "Primary 3":100000,"Primary 4":100000,"Primary 5":105000,"Primary 6":105000,"JSS1":120000,"JSS2":120000,
+    "JSS3":125000,"SS1":140000,"SS2":140000,"SS3":150000 };
+
+  const feeItems = [
+    { key:"schoolfees", name:"School Fees", getCharge: lvl => feePerLevel[lvl] || 0 },
+    { key:"uniform", name:"Uniform", getCharge: () => 20000 },
+    { key:"sportwear", name:"Sportwear", getCharge: () => 8000 },
+    { key:"admission", name:"Admission Form", getCharge: () => 5000 },
+  ];
+
+  const firstNames = ["Chioma","Tunde","Aisha","Segun","Ifeoma","Kelechi","Amaka","Yusuf","Grace","Musa",
+    "Ronke","Uche","Halima","Obinna","Funmi","Bashir","Ngozi","Femi","Zainab","Chidinma","Kayode","Precious"];
+  const lastNames = ["Adewale","Okonkwo","Bello","Chukwu","Balogun","Nwosu","Danladi","Effiong","Umeh","Sanni",
+    "Igwe","Yakubu","Eze","Adeyemi","Bakare","Etim","Musa","Obi","Ayinde","Danjuma"];
+
+  let classRoster = {};
+  let paidState = {};
+
+  function seededRandom(seed){
+    let x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  }
+
+  function getRoster(level, arm){
+    const key = level + "|" + arm;
+    if(classRoster[key]) return classRoster[key];
+    const seedBase = key.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
+    const count = 10 + Math.floor(seededRandom(seedBase) * 10);
+    const roster = [];
+    for(let i = 0; i < count; i++){
+      const s = seedBase + i * 7;
+      const fn = firstNames[Math.floor(seededRandom(s) * firstNames.length)];
+      const ln = lastNames[Math.floor(seededRandom(s+1) * lastNames.length)];
+      roster.push({ name: `${fn} ${ln}`, adm: `BPC-${1000 + Math.floor(seededRandom(s+2)*8000)}` });
+    }
+    classRoster[key] = roster;
+    return roster;
+  }
+
+  function getPaid(level, arm, feeKey, idx, charged){
+    const key = `${level}|${arm}|${feeKey}|${idx}`;
+    if(key in paidState) return paidState[key];
+    const s = key.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
+    const roll = seededRandom(s);
+    let paid;
+    if(roll < 0.55) paid = charged;
+    else if(roll < 0.85) paid = Math.round(charged * (0.3 + seededRandom(s+1)*0.5) / 500) * 500;
+    else paid = 0;
+    paidState[key] = paid;
+    return paid;
+  }
+
+  function populateSelect(sel, options, valueFn, labelFn){
+    sel.innerHTML = options.map(o => `<option value="${valueFn(o)}">${labelFn(o)}</option>`).join('');
+  }
+
+  let currentPage = 1;
+  const pageSize = 15;
+
+  function onLevelChange(){
+    const level = document.getElementById('selLevel').value;
+    const cls = classData.find(c => c.name === level);
+    const armSel = document.getElementById('selArm');
+    armSel.innerHTML = `<option value="__all__">All arms (${cls.arms.join(', ')})</option>` +
+      cls.arms.map(a => `<option value="${a}">${level} ${a}</option>`).join('');
+    currentPage = 1;
+    renderRegister();
+  }
+
+  function onFilterChange(){
+    currentPage = 1;
+    renderRegister();
+  }
+
+  function renderRegister(){
+    const level = document.getElementById('selLevel').value;
+    const armSel = document.getElementById('selArm').value;
+    const feeKey = document.getElementById('selFee').value;
+    const fee = feeItems.find(f => f.key === feeKey);
+    const cls = classData.find(c => c.name === level);
+    const arms = armSel === '__all__' ? cls.arms : [armSel];
+    const charged = fee.getCharge(level);
+
+    let rows = [];
+    arms.forEach(arm => {
+      const roster = getRoster(level, arm);
+      roster.forEach((student, idx) => {
+        const paid = getPaid(level, arm, feeKey, idx, charged);
+        rows.push({ student, arm, idx, charged, paid });
+      });
+    });
+
+    const totalCharged = rows.reduce((s,r) => s + r.charged, 0);
+    const totalPaid = rows.reduce((s,r) => s + r.paid, 0);
+    const totalBalance = totalCharged - totalPaid;
+    const fullyPaidCount = rows.filter(r => r.charged - r.paid <= 0).length;
+    document.getElementById('summaryStrip').innerHTML = `
+      <div class="sstat"><div class="label">Students</div><div class="value">${rows.length}</div></div>
+      <div class="sstat success"><div class="label">Fully paid</div><div class="value">${fullyPaidCount} / ${rows.length}</div></div>
+      <div class="sstat"><div class="label">Total collected</div><div class="value">₦${(totalPaid/1000).toFixed(0)}k</div></div>
+      <div class="sstat rust"><div class="label">Total outstanding</div><div class="value">₦${(totalBalance/1000).toFixed(0)}k</div></div>
+    `;
+
+    const body = document.getElementById('registerBody');
+    if(rows.length === 0){
+      body.innerHTML = `<div class="empty-note">No students in this class yet.</div>`;
+      document.getElementById('paginationBar').innerHTML = '';
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+    if(currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * pageSize;
+    const pageRows = rows.slice(start, start + pageSize);
+
+    let html = pageRows.map((r, i) => {
+      const bal = r.charged - r.paid;
+      const rowKey = `${level}|${r.arm}|${feeKey}|${r.idx}`;
+      const safeId = rowKey.replace(/\|/g,'_');
+      return `
+        <div class="r-row ${bal <= 0 ? 'fully-paid' : ''}" id="row-${safeId}">
+          <div class="col-num">${start + i + 1}</div>
+          <div class="col-student"><div class="n">${r.student.name}</div><div class="c">${level} ${r.arm} · ${r.student.adm}</div></div>
+          <div class="col-charged">₦${r.charged.toLocaleString()}</div>
+          <div class="col-paid" id="paid-${safeId}">₦${r.paid.toLocaleString()}</div>
+          <div class="col-balance" id="bal-${safeId}">${bal > 0 ? `<span class="bal-tag owed">₦${bal.toLocaleString()}</span>` : `<span class="bal-tag clear">Cleared</span>`}</div>
+          <div class="col-entry">
+            ${bal > 0 ? `
+              <button class="fill-btn" onclick="fillFull('${rowKey}', ${bal})">Full</button>
+              <input type="number" id="input-${safeId}" placeholder="Amount">
+              <button class="add-btn" onclick="recordPayment('${rowKey}', ${r.charged})">Add</button>
+            ` : `<span style="color:var(--success); font-size:11.5px; font-weight:600;">✓ No balance</span>`}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    html += `
+      <div class="totals-row">
+        <div class="col-num"></div>
+        <div class="col-student">Totals for this selection</div>
+        <div class="col-charged">₦${totalCharged.toLocaleString()}</div>
+        <div class="col-paid">₦${totalPaid.toLocaleString()}</div>
+        <div class="col-balance">₦${totalBalance.toLocaleString()}</div>
+        <div class="col-entry"></div>
+      </div>
+    `;
+    body.innerHTML = html;
+    renderPagination(totalPages);
+  }
+
+  function renderPagination(totalPages){
+    const bar = document.getElementById('paginationBar');
+    if(totalPages <= 1){ bar.innerHTML = ''; return; }
+    let pages = [];
+    for(let p = 1; p <= totalPages; p++){
+      if(p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2) pages.push(p);
+      else if(pages[pages.length-1] !== '…') pages.push('…');
+    }
+    bar.innerHTML = `
+      <button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="goToPage(${currentPage - 1})">← Prev</button>
+      ${pages.map(p => p === '…'
+        ? `<span class="page-ellipsis">…</span>`
+        : `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`
+      ).join('')}
+      <button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">Next →</button>
+    `;
+  }
+
+  function goToPage(p){
+    currentPage = p;
+    renderRegister();
+    document.querySelector('.register-wrap').scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+
+  function fillFull(rowKey, bal){
+    const id = 'input-' + rowKey.replace(/\|/g,'_');
+    document.getElementById(id).value = bal;
+  }
+
+  function recordPayment(rowKey, charged){
+    const inputId = 'input-' + rowKey.replace(/\|/g,'_');
+    const input = document.getElementById(inputId);
+    const amount = parseInt(input.value) || 0;
+    if(amount <= 0){ showToast('Enter an amount first'); return; }
+
+    paidState[rowKey] = (paidState[rowKey] || 0) + amount;
+    const newPaid = paidState[rowKey];
+    const newBal = charged - newPaid;
+    const safeId = rowKey.replace(/\|/g,'_');
+
+    document.getElementById('paid-' + safeId).textContent = `₦${newPaid.toLocaleString()}`;
+    const balCell = document.getElementById('bal-' + safeId);
+    balCell.innerHTML = newBal > 0 ? `<span class="bal-tag owed">₦${newBal.toLocaleString()}</span>` : `<span class="bal-tag clear">Cleared</span>`;
+
+    const row = document.getElementById('row-' + safeId);
+    row.classList.add('paid-flash');
+    if(newBal <= 0){
+      row.classList.add('fully-paid');
+      const entryCell = row.querySelector('.col-entry');
+      entryCell.innerHTML = `<span style="color:var(--success); font-size:11.5px; font-weight:600;">✓ No balance</span>`;
+    } else {
+      input.value = '';
+    }
+
+    showToast(`₦${amount.toLocaleString()} recorded`);
+    renderSummaryOnly();
+  }
+
+  function renderSummaryOnly(){
+    const level = document.getElementById('selLevel').value;
+    const armSel = document.getElementById('selArm').value;
+    const feeKey = document.getElementById('selFee').value;
+    const fee = feeItems.find(f => f.key === feeKey);
+    const cls = classData.find(c => c.name === level);
+    const arms = armSel === '__all__' ? cls.arms : [armSel];
+    const charged = fee.getCharge(level);
+
+    let totalCharged = 0, totalPaid = 0, fullyPaidCount = 0, total = 0;
+    arms.forEach(arm => {
+      const roster = getRoster(level, arm);
+      roster.forEach((student, idx) => {
+        const paid = getPaid(level, arm, feeKey, idx, charged);
+        totalCharged += charged; totalPaid += paid; total++;
+        if(charged - paid <= 0) fullyPaidCount++;
+      });
+    });
+    const totalBalance = totalCharged - totalPaid;
+    document.getElementById('summaryStrip').innerHTML = `
+      <div class="sstat"><div class="label">Students</div><div class="value">${total}</div></div>
+      <div class="sstat success"><div class="label">Fully paid</div><div class="value">${fullyPaidCount} / ${total}</div></div>
+      <div class="sstat"><div class="label">Total collected</div><div class="value">₦${(totalPaid/1000).toFixed(0)}k</div></div>
+      <div class="sstat rust"><div class="label">Total outstanding</div><div class="value">₦${(totalBalance/1000).toFixed(0)}k</div></div>
+    `;
+  }
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  populateSelect(document.getElementById('selLevel'), classData, c => c.name, c => c.name);
+  document.getElementById('selLevel').value = 'JSS1';
+  populateSelect(document.getElementById('selFee'), feeItems, f => f.key, f => f.name);
+  onLevelChange();
+</script>
+
+</body>
+</html>

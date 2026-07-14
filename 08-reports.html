@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Schoolbook — Reports</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16233D; --slate:#2F4468; --slate-soft:#5B6E90;
+    --gold:#B98B3E; --gold-soft:#E4C88A;
+    --paper:#F4F5F8; --paper-card:#FFFFFF; --line:#DCE0E9;
+    --success:#3A7D5C; --success-bg:#E9F3EE;
+    --rust:#B84C3E; --rust-bg:#FBEBE9;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink); display:flex; min-height:100vh; -webkit-font-smoothing:antialiased; }
+
+  .sidebar{ width:230px; flex-shrink:0; background:var(--ink); color:#fff; display:flex; flex-direction:column; padding:22px 16px; }
+  .brand{ display:flex; align-items:center; gap:10px; padding:0 6px 24px; }
+  .brand-mark{ width:30px; height:30px; border:1.5px solid var(--gold-soft); border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:700; font-size:14px; color:var(--gold-soft); flex-shrink:0; }
+  .brand-name{ font-family:'Source Serif 4', serif; font-weight:600; font-size:16.5px; }
+  .nav-section-label{ font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#7C89A6; padding:14px 10px 8px; }
+  .nav-item{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px; font-size:13.5px; font-weight:500; color:#C4CCDE; cursor:pointer; margin-bottom:2px; transition:background .12s ease, color .12s ease; text-decoration:none; }
+  .nav-item:hover{ background:rgba(255,255,255,0.06); color:#fff; }
+  .nav-item.active{ background:var(--slate); color:#fff; font-weight:600; }
+  .nav-icon{ width:16px; text-align:center; font-size:13px; flex-shrink:0; }
+  .sidebar-foot{ margin-top:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:14px; display:flex; align-items:center; gap:9px; }
+  .school-avatar{ width:30px; height:30px; border-radius:8px; background:var(--slate); display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:600; font-size:13px; }
+  .school-meta{ line-height:1.3; }
+  .school-meta .name{ font-size:12.5px; font-weight:600; }
+  .school-meta .role{ font-size:10.5px; color:#8895AF; }
+
+  .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .topbar{ height:64px; flex-shrink:0; background:var(--paper-card); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; padding:0 28px; }
+  .topbar h1{ font-family:'Source Serif 4', serif; font-size:19px; font-weight:600; }
+  .session-pill{ display:flex; align-items:center; gap:8px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:600; color:var(--slate); font-family:'IBM Plex Mono', monospace; }
+  .session-pill .dot{ width:6px; height:6px; border-radius:50%; background:var(--success); }
+
+  .content{ padding:28px 32px 60px; overflow-y:auto; }
+  .page-head{ margin-bottom:20px; }
+  .page-head .eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--slate-soft); margin-bottom:6px; }
+  .page-head h2{ font-family:'Source Serif 4', serif; font-size:24px; font-weight:600; }
+  .page-head p{ font-size:13px; color:var(--slate-soft); margin-top:4px; max-width:560px; }
+
+  .tabs{ display:flex; gap:2px; background:var(--line); padding:3px; border-radius:9px; margin-bottom:22px; width:fit-content; }
+  .tab{ padding:9px 18px; font-size:13px; font-weight:600; color:var(--slate-soft); border-radius:7px; cursor:pointer; transition:all .15s ease; user-select:none; }
+  .tab.active{ background:var(--paper-card); color:var(--ink); box-shadow:0 1px 3px rgba(22,35,61,0.08); }
+
+  .btn-ghost{ padding:9px 15px; background:var(--paper-card); color:var(--slate); border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; }
+  .btn-ghost:hover{ background:var(--paper); }
+
+  .stat-row{ display:flex; gap:14px; margin-bottom:22px; }
+  .stat-card{ flex:1; background:var(--paper-card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .stat-card .label{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--slate-soft); margin-bottom:8px; }
+  .stat-card .value{ font-family:'Source Serif 4', serif; font-size:22px; font-weight:600; }
+  .stat-card .sub{ font-size:11px; color:var(--slate-soft); margin-top:5px; }
+  .stat-card.rust .value{ color:var(--rust); }
+  .stat-card.gold .value{ color:var(--gold); }
+
+  .filter-bar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+  .filter-left{ display:flex; gap:10px; flex-wrap:wrap; }
+  .filter-bar select, .filter-bar input{ padding:9px 12px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-family:'Inter', sans-serif; background:var(--paper-card); color:var(--ink); outline:none; }
+  .filter-bar select:focus, .filter-bar input:focus{ border-color:var(--slate); box-shadow:0 0 0 3px rgba(47,68,104,0.1); }
+
+  .table-wrap{ background:var(--paper-card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .t-row{ display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); font-size:12.5px; gap:10px; }
+  .t-row:last-child{ border-bottom:none; }
+  .t-row.head{ background:var(--paper); font-family:'IBM Plex Mono', monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--slate-soft); font-weight:600; padding:9px 16px; }
+  .t-row:not(.head):hover{ background:#FAFBFC; }
+  .avatar{ width:28px; height:28px; border-radius:7px; background:var(--paper); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:600; font-size:11px; color:var(--slate); flex-shrink:0; }
+  .col-avatar{ width:34px; flex-shrink:0; }
+  .col-student{ flex:1.6; min-width:0; }
+  .col-student .n{ font-weight:600; }
+  .col-student .c{ font-size:11px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; }
+  .col-source{ flex:1.4; }
+  .col-source .t{ font-weight:500; }
+  .col-source .s{ font-size:11px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; }
+  .col-amt{ flex:1; text-align:right; font-family:'IBM Plex Mono', monospace; font-weight:700; }
+  .col-amt.rust{ color:var(--rust); }
+  .col-amt.gold{ color:var(--gold); }
+  .col-action{ flex:0.7; text-align:right; }
+  .view-link{ font-size:11.5px; font-weight:600; color:var(--slate); text-decoration:none; }
+  .view-link:hover{ text-decoration:underline; }
+  .flag{ font-size:9.5px; font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--gold); background:#FCF3E3; padding:2px 6px; border-radius:5px; margin-left:6px; }
+
+  .class-row{ display:flex; align-items:center; gap:10px; padding:11px 16px; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .class-row:last-child{ border-bottom:none; }
+  .class-row .lvl{ flex:1.1; font-weight:600; }
+  .class-row .bar-wrap{ flex:2; height:7px; background:var(--paper); border-radius:4px; overflow:hidden; }
+  .class-row .bar{ height:100%; background:var(--success); border-radius:4px; }
+  .class-row .pct{ width:40px; text-align:right; font-family:'IBM Plex Mono', monospace; color:var(--slate-soft); font-size:11px; }
+  .class-row .amt{ width:110px; text-align:right; font-family:'IBM Plex Mono', monospace; color:var(--slate); font-size:12px; }
+
+  .view{ display:none; }
+  .view.active{ display:block; }
+</style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand"><div class="brand-mark">S</div><div class="brand-name">Schoolbook</div></div>
+    <div class="nav-section-label">Overview</div>
+    <a class="nav-item" href="06-dashboard.html"><span class="nav-icon">◧</span>Dashboard</a>
+    <div class="nav-section-label">Records</div>
+    <a class="nav-item" href="04-students.html"><span class="nav-icon">☺</span>Students</a>
+    <a class="nav-item" href="07-payments.html"><span class="nav-icon">✎</span>Payments</a>
+    <a class="nav-item" href="10-class-register.html"><span class="nav-icon">▤</span>Class Register</a>
+    <a class="nav-item" href="11-promotion.html"><span class="nav-icon">↑</span>Promotion</a>
+    <a class="nav-item active" href="08-reports.html"><span class="nav-icon">▦</span>Reports</a>
+    <div class="nav-section-label">Configuration</div>
+    <a class="nav-item" href="09-settings.html"><span class="nav-icon">⚙</span>Settings</a>
+    <a class="nav-item" href="12-audit-log.html"><span class="nav-icon">🕐</span>Audit Log</a>
+    <div class="sidebar-foot">
+      <div class="school-avatar">B</div>
+      <div class="school-meta"><div class="name">Bright Path College</div><div class="role">Admin</div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h1>Reports</h1>
+      <div class="session-pill"><span class="dot"></span>2025/2026 · Term 1</div>
+    </div>
+
+    <div class="content">
+      <div class="page-head">
+        <div class="eyebrow">Records</div>
+        <h2>School-wide reports</h2>
+        <p>Who owes what, where old debt is still sitting, and how collections are trending by class.</p>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="showTab('defaulters')">Defaulters</div>
+        <div class="tab" onclick="showTab('arrears')">Arrears</div>
+        <div class="tab" onclick="showTab('collections')">Collections summary</div>
+      </div>
+
+      <!-- DEFAULTERS -->
+      <div class="view active" id="tab-defaulters">
+        <div class="stat-row">
+          <div class="stat-card rust">
+            <div class="label">Total outstanding</div>
+            <div class="value">₦8.9M</div>
+            <div class="sub">78 students with a current-term balance</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Average balance</div>
+            <div class="value">₦114,100</div>
+            <div class="sub">per defaulting student</div>
+          </div>
+          <div class="stat-card gold">
+            <div class="label">Also carrying arrears</div>
+            <div class="value">23</div>
+            <div class="sub">of these students owe from prior sessions too</div>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <div class="filter-left">
+            <select id="defLevel" onchange="renderDefaulters()">
+              <option value="all">All classes</option>
+              <option>SS3</option><option>SS2</option><option>SS1</option>
+              <option>JSS3</option><option>JSS2</option><option>Primary 6</option><option>Primary 4</option>
+            </select>
+            <select id="defSort" onchange="renderDefaulters()">
+              <option value="desc">Highest balance first</option>
+              <option value="asc">Lowest balance first</option>
+            </select>
+          </div>
+          <button class="btn-ghost" onclick="exportDefaulters()">Export list</button>
+        </div>
+
+        <div class="table-wrap">
+          <div class="t-row head">
+            <div class="col-avatar"></div>
+            <div class="col-student">Student</div>
+            <div class="col-source">Class</div>
+            <div class="col-amt">Balance owed</div>
+            <div class="col-action"></div>
+          </div>
+          <div id="defaultersBody"></div>
+        </div>
+      </div>
+
+      <!-- ARREARS -->
+      <div class="view" id="tab-arrears">
+        <div class="stat-row">
+          <div class="stat-card gold">
+            <div class="label">Total arrears carried</div>
+            <div class="value">₦1.6M</div>
+            <div class="sub">across 23 students, from prior sessions</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Oldest unresolved</div>
+            <div class="value">2023/2024</div>
+            <div class="sub">Term 2 — still unpaid</div>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <div class="filter-left">
+            <select id="arrLevel" onchange="renderArrears()">
+              <option value="all">All current classes</option>
+              <option>SS3</option><option>SS2</option><option>JSS3</option>
+            </select>
+          </div>
+          <button class="btn-ghost" onclick="exportArrears()">Export list</button>
+        </div>
+
+        <div class="table-wrap">
+          <div class="t-row head">
+            <div class="col-avatar"></div>
+            <div class="col-student">Student (now)</div>
+            <div class="col-source">Arrears from</div>
+            <div class="col-amt">Amount owed</div>
+            <div class="col-action"></div>
+          </div>
+          <div id="arrearsBody"></div>
+        </div>
+      </div>
+
+      <!-- COLLECTIONS SUMMARY -->
+      <div class="view" id="tab-collections">
+        <div class="stat-row">
+          <div class="stat-card">
+            <div class="label">Expected this term</div>
+            <div class="value">₦40.3M</div>
+            <div class="sub">across all class levels</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Collected so far</div>
+            <div class="value">₦31.4M</div>
+            <div class="sub">78% of expected</div>
+          </div>
+          <div class="stat-card rust">
+            <div class="label">Remaining</div>
+            <div class="value">₦8.9M</div>
+            <div class="sub">22% still outstanding</div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="t-row head" style="padding:9px 16px;">
+            <div style="flex:1.1;">Class</div>
+            <div style="flex:2;">Collection rate</div>
+            <div style="width:110px; text-align:right;">Outstanding</div>
+          </div>
+          <div id="collectionsBody"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+  function initials(name){ return name.split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase(); }
+
+  // Generic CSV export: builds a CSV blob client-side and triggers a
+  // download. In the real app, exports of this size should be generated
+  // server-side, but the pattern (and the button) is the same.
+  function exportToCSV(filename, headers, rows){
+    const escape = v => `"${String(v).replace(/"/g,'""')}"`;
+    const csv = [headers.map(escape).join(',')]
+      .concat(rows.map(r => r.map(escape).join(',')))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportDefaulters(){
+    const level = document.getElementById('defLevel').value;
+    const list = defaulters.filter(d => level === 'all' || d.cls.startsWith(level));
+    exportToCSV(
+      `defaulters-${level === 'all' ? 'all-classes' : level}-2026-07-14.csv`,
+      ['Student', 'Class', 'Balance Owed', 'Has Prior Arrears'],
+      list.map(d => [d.name, d.cls, d.amt, d.arrears ? 'Yes' : 'No'])
+    );
+  }
+
+  function exportArrears(){
+    const level = document.getElementById('arrLevel').value;
+    const list = arrears.filter(a => level === 'all' || a.nowCls.startsWith(level));
+    exportToCSV(
+      `arrears-${level === 'all' ? 'all-classes' : level}-2026-07-14.csv`,
+      ['Student', 'Current Class', 'Arrears From Class', 'Arrears From Term', 'Amount Owed'],
+      list.map(a => [a.name, a.nowCls, a.fromCls, a.term, a.amt])
+    );
+  }
+
+  function showTab(name){
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  // ---- Defaulters ----
+  let defaulters = [
+    { name:"Chinedu Bassey", cls:"SS3 A", amt:150000, arrears:false },
+    { name:"Adaeze Okafor", cls:"SS3 A", amt:127000, arrears:true },
+    { name:"Tunde Bakare", cls:"JSS3 A", amt:88500, arrears:true },
+    { name:"Ifeoma Chukwu", cls:"SS2 B", amt:95000, arrears:false },
+    { name:"Grace Effiong", cls:"Primary 6 A", amt:64000, arrears:false },
+    { name:"Musa Danladi", cls:"SS1 A", amt:59000, arrears:false },
+    { name:"Kemi Adewale", cls:"JSS2 B", amt:41000, arrears:false },
+    { name:"Fatima Sule", cls:"SS3 B", amt:35000, arrears:false },
+  ];
+
+  function renderDefaulters(){
+    const level = document.getElementById('defLevel').value;
+    const sort = document.getElementById('defSort').value;
+    let list = defaulters.filter(d => level === 'all' || d.cls.startsWith(level));
+    list = list.sort((a,b) => sort === 'desc' ? b.amt - a.amt : a.amt - b.amt);
+    document.getElementById('defaultersBody').innerHTML = list.map(d => `
+      <div class="t-row">
+        <div class="col-avatar"><div class="avatar">${initials(d.name)}</div></div>
+        <div class="col-student"><div class="n">${d.name}${d.arrears ? '<span class="flag">ARREARS</span>' : ''}</div></div>
+        <div class="col-source"><div class="t">${d.cls}</div></div>
+        <div class="col-amt rust">₦${d.amt.toLocaleString()}</div>
+        <div class="col-action"><a class="view-link" href="05-student-profile.html">View →</a></div>
+      </div>
+    `).join('');
+  }
+
+  // ---- Arrears ----
+  let arrears = [
+    { name:"Adaeze Okafor", nowCls:"SS3 A", fromCls:"SS1 A", term:"Term 2, 2023/2024", amt:42000 },
+    { name:"Tunde Bakare", nowCls:"JSS3 A", fromCls:"JSS1 A", term:"Term 3, 2024/2025", amt:31500 },
+    { name:"Ifeoma Chukwu", nowCls:"SS2 B", fromCls:"SS1 B", term:"Term 1, 2024/2025", amt:28000 },
+  ];
+
+  function renderArrears(){
+    const level = document.getElementById('arrLevel').value;
+    const list = arrears.filter(a => level === 'all' || a.nowCls.startsWith(level));
+    document.getElementById('arrearsBody').innerHTML = list.map(a => `
+      <div class="t-row">
+        <div class="col-avatar"><div class="avatar">${initials(a.name)}</div></div>
+        <div class="col-student"><div class="n">${a.name}</div><div class="c">${a.nowCls}</div></div>
+        <div class="col-source"><div class="t">${a.fromCls}</div><div class="s">${a.term}</div></div>
+        <div class="col-amt gold">₦${a.amt.toLocaleString()}</div>
+        <div class="col-action"><a class="view-link" href="05-student-profile.html">View →</a></div>
+      </div>
+    `).join('');
+  }
+
+  // ---- Collections summary ----
+  const collections = [
+    { lvl:"SS3", pct:74, outstanding:1420000 },
+    { lvl:"SS2", pct:81, outstanding:980000 },
+    { lvl:"SS1", pct:88, outstanding:610000 },
+    { lvl:"JSS3", pct:69, outstanding:1180000 },
+    { lvl:"JSS2", pct:92, outstanding:340000 },
+    { lvl:"JSS1", pct:85, outstanding:520000 },
+    { lvl:"Primary 6", pct:95, outstanding:190000 },
+    { lvl:"Primary 4", pct:90, outstanding:260000 },
+  ];
+  document.getElementById('collectionsBody').innerHTML = collections.map(c => `
+    <div class="class-row">
+      <div class="lvl">${c.lvl}</div>
+      <div class="bar-wrap"><div class="bar" style="width:${c.pct}%;"></div></div>
+      <div class="pct">${c.pct}%</div>
+      <div class="amt">₦${c.outstanding.toLocaleString()}</div>
+    </div>
+  `).join('');
+
+  renderDefaulters();
+  renderArrears();
+</script>
+
+</body>
+</html>

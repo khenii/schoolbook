@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Schoolbook — Promotion</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16233D; --slate:#2F4468; --slate-soft:#5B6E90;
+    --gold:#B98B3E; --gold-soft:#E4C88A;
+    --paper:#F4F5F8; --paper-card:#FFFFFF; --line:#DCE0E9;
+    --success:#3A7D5C; --success-bg:#E9F3EE;
+    --rust:#B84C3E; --rust-bg:#FBEBE9;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink); display:flex; min-height:100vh; -webkit-font-smoothing:antialiased; }
+
+  .sidebar{ width:230px; flex-shrink:0; background:var(--ink); color:#fff; display:flex; flex-direction:column; padding:22px 16px; }
+  .brand{ display:flex; align-items:center; gap:10px; padding:0 6px 24px; }
+  .brand-mark{ width:30px; height:30px; border:1.5px solid var(--gold-soft); border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:700; font-size:14px; color:var(--gold-soft); flex-shrink:0; }
+  .brand-name{ font-family:'Source Serif 4', serif; font-weight:600; font-size:16.5px; }
+  .nav-section-label{ font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#7C89A6; padding:14px 10px 8px; }
+  .nav-item{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px; font-size:13.5px; font-weight:500; color:#C4CCDE; cursor:pointer; margin-bottom:2px; transition:background .12s ease, color .12s ease; text-decoration:none; }
+  .nav-item:hover{ background:rgba(255,255,255,0.06); color:#fff; }
+  .nav-item.active{ background:var(--slate); color:#fff; font-weight:600; }
+  .nav-icon{ width:16px; text-align:center; font-size:13px; flex-shrink:0; }
+  .sidebar-foot{ margin-top:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:14px; display:flex; align-items:center; gap:9px; }
+  .school-avatar{ width:30px; height:30px; border-radius:8px; background:var(--slate); display:flex; align-items:center; justify-content:center; font-family:'Source Serif 4', serif; font-weight:600; font-size:13px; }
+  .school-meta{ line-height:1.3; }
+  .school-meta .name{ font-size:12.5px; font-weight:600; }
+  .school-meta .role{ font-size:10.5px; color:#8895AF; }
+
+  .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .topbar{ height:64px; flex-shrink:0; background:var(--paper-card); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; padding:0 28px; }
+  .topbar h1{ font-family:'Source Serif 4', serif; font-size:19px; font-weight:600; }
+  .session-pill{ display:flex; align-items:center; gap:8px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:600; color:var(--slate); font-family:'IBM Plex Mono', monospace; }
+  .session-pill .dot{ width:6px; height:6px; border-radius:50%; background:var(--success); }
+
+  .content{ padding:28px 32px 60px; overflow-y:auto; }
+  .page-head{ margin-bottom:18px; }
+  .page-head .eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--slate-soft); margin-bottom:6px; }
+  .page-head h2{ font-family:'Source Serif 4', serif; font-size:24px; font-weight:600; }
+  .page-head p{ font-size:13px; color:var(--slate-soft); margin-top:4px; max-width:560px; }
+
+  .selector-bar{ display:flex; gap:16px; align-items:center; margin-bottom:18px; flex-wrap:wrap; background:var(--paper-card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .selector-group{ display:flex; flex-direction:column; gap:5px; }
+  .selector-group label{ font-size:10px; font-weight:600; color:var(--slate-soft); text-transform:uppercase; letter-spacing:0.05em; font-family:'IBM Plex Mono', monospace; }
+  .selector-group select{ padding:8px 11px; border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink); outline:none; min-width:140px; }
+  .promo-arrow{ display:flex; flex-direction:column; align-items:center; gap:4px; padding-top:16px; }
+  .promo-arrow .from{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; font-weight:700; color:var(--slate); background:var(--paper); border:1px solid var(--line); padding:6px 12px; border-radius:7px; }
+  .promo-arrow .to{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; font-weight:700; color:var(--success); background:var(--success-bg); border:1px solid var(--success); padding:6px 12px; border-radius:7px; }
+  .promo-arrow .arrow{ color:var(--slate-soft); font-size:14px; }
+
+  .bulk-bar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .bulk-bar .left{ font-size:12.5px; color:var(--slate-soft); }
+  .bulk-actions{ display:flex; gap:8px; }
+  .bulk-btn{ font-size:11.5px; font-weight:600; padding:7px 12px; border-radius:7px; border:1px solid var(--line); background:var(--paper-card); color:var(--slate); cursor:pointer; }
+  .bulk-btn:hover{ background:var(--paper); }
+
+  .roster-wrap{ background:var(--paper-card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .p-row{ display:flex; align-items:center; padding:11px 16px; border-bottom:1px solid var(--line); font-size:12.5px; gap:14px; }
+  .p-row:last-child{ border-bottom:none; }
+  .p-row.head{ background:var(--paper); font-family:'IBM Plex Mono', monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--slate-soft); font-weight:600; padding:10px 16px; }
+  .p-row.action-repeat{ background:#FCF3E3; }
+  .p-row.action-withdraw{ background:var(--rust-bg); }
+  .col-student{ flex:1.6; min-width:0; }
+  .col-student .n{ font-weight:600; }
+  .col-student .c{ font-size:11px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; }
+  .col-current{ flex:1; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; }
+  .col-action{ flex:1.6; }
+  .action-select{ padding:7px 10px; border:1px solid var(--line); border-radius:7px; font-size:12px; font-family:'Inter', sans-serif; background:var(--paper-card); color:var(--ink); outline:none; width:100%; }
+  .col-result{ flex:1.2; text-align:right; font-family:'IBM Plex Mono', monospace; font-size:12px; }
+  .result-promote{ color:var(--success); }
+  .result-repeat{ color:var(--gold); }
+  .result-withdraw{ color:var(--rust); }
+
+  .summary-bar{ display:flex; gap:14px; margin-top:16px; }
+  .sstat{ flex:1; background:var(--paper-card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; text-align:center; }
+  .sstat .label{ font-family:'IBM Plex Mono', monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--slate-soft); margin-bottom:6px; }
+  .sstat .value{ font-family:'Source Serif 4', serif; font-size:22px; font-weight:600; }
+  .sstat.success .value{ color:var(--success); }
+  .sstat.gold .value{ color:var(--gold); }
+  .sstat.rust .value{ color:var(--rust); }
+
+  .btn-primary{ padding:11px 20px; background:var(--ink); color:#fff; border:none; border-radius:8px; font-size:13.5px; font-weight:600; cursor:pointer; transition:background .15s ease; }
+  .btn-primary:hover{ background:var(--slate); }
+  .confirm-bar{ display:flex; justify-content:flex-end; margin-top:18px; }
+
+  .done-banner{ display:none; background:var(--success-bg); border:1px solid var(--success); border-radius:12px; padding:16px 18px; margin-bottom:18px; }
+  .done-banner.show{ display:block; }
+  .done-banner .dt{ font-weight:700; color:var(--success); font-size:13px; margin-bottom:4px; }
+  .done-banner .ds{ font-size:12.5px; color:var(--slate); }
+
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:11px 20px; border-radius:8px; font-size:12.5px; font-weight:500; opacity:0; pointer-events:none; transition:all .25s ease; z-index:99; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand"><div class="brand-mark">S</div><div class="brand-name">Schoolbook</div></div>
+    <div class="nav-section-label">Overview</div>
+    <a class="nav-item" href="06-dashboard.html"><span class="nav-icon">◧</span>Dashboard</a>
+    <div class="nav-section-label">Records</div>
+    <a class="nav-item" href="04-students.html"><span class="nav-icon">☺</span>Students</a>
+    <a class="nav-item" href="07-payments.html"><span class="nav-icon">✎</span>Payments</a>
+    <a class="nav-item" href="10-class-register.html"><span class="nav-icon">▤</span>Class Register</a>
+    <a class="nav-item active" href="11-promotion.html"><span class="nav-icon">↑</span>Promotion</a>
+    <a class="nav-item" href="08-reports.html"><span class="nav-icon">▦</span>Reports</a>
+    <div class="nav-section-label">Configuration</div>
+    <a class="nav-item" href="09-settings.html"><span class="nav-icon">⚙</span>Settings</a>
+    <a class="nav-item" href="12-audit-log.html"><span class="nav-icon">🕐</span>Audit Log</a>
+    <div class="sidebar-foot">
+      <div class="school-avatar">B</div>
+      <div class="school-meta"><div class="name">Bright Path College</div><div class="role">Admin</div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h1>Promotion</h1>
+      <div class="session-pill"><span class="dot"></span>2025/2026 · Term 3</div>
+    </div>
+
+    <div class="content">
+      <div class="page-head">
+        <div class="eyebrow">End of session</div>
+        <h2>Promote a class to the next session</h2>
+        <p>Everyone defaults to promoting. Override individual students who are repeating the class or leaving — history stays intact either way, and nothing here touches existing charges or payments.</p>
+      </div>
+
+      <div class="done-banner" id="doneBanner"></div>
+
+      <div class="selector-bar">
+        <div class="selector-group">
+          <label>Class level</label>
+          <select id="selLevel" onchange="onLevelChange()"></select>
+        </div>
+        <div class="selector-group">
+          <label>Arm</label>
+          <select id="selArm" onchange="loadRoster()"></select>
+        </div>
+        <div class="promo-arrow">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="from" id="fromTag">SS2 A · 2025/2026</span>
+            <span class="arrow">→</span>
+            <span class="to" id="toTag">SS3 A · 2026/2027</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bulk-bar">
+        <div class="left" id="bulkCount">0 students</div>
+        <div class="bulk-actions">
+          <button class="bulk-btn" onclick="setAll('promote')">Set all: Promote</button>
+          <button class="bulk-btn" onclick="setAll('repeat')">Set all: Repeat</button>
+        </div>
+      </div>
+
+      <div class="roster-wrap">
+        <div class="p-row head">
+          <div class="col-student">Student</div>
+          <div class="col-current">Current class</div>
+          <div class="col-action">Action for 2026/2027</div>
+          <div class="col-result">Result</div>
+        </div>
+        <div id="rosterBody"></div>
+      </div>
+
+      <div class="summary-bar" id="summaryBar"></div>
+
+      <div class="confirm-bar">
+        <button class="btn-primary" onclick="confirmPromotion()">Confirm and apply</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Saved</div>
+
+<script>
+  const gradeProgression = ["Kindergarten","Nursery 1","Nursery 2","Primary 1","Primary 2","Primary 3",
+    "Primary 4","Primary 5","Primary 6","JSS1","JSS2","JSS3","SS1","SS2","SS3"];
+  const classData = [
+    { name:"Kindergarten", arms:["A"] }, { name:"Nursery 1", arms:["A"] }, { name:"Nursery 2", arms:["A"] },
+    { name:"Primary 1", arms:["A","B"] }, { name:"Primary 2", arms:["A","B"] }, { name:"Primary 3", arms:["A"] },
+    { name:"Primary 4", arms:["A"] }, { name:"Primary 5", arms:["A"] }, { name:"Primary 6", arms:["A"] },
+    { name:"JSS1", arms:["A","B","C"] }, { name:"JSS2", arms:["A","B"] }, { name:"JSS3", arms:["A"] },
+    { name:"SS1", arms:["A","B"] }, { name:"SS2", arms:["A","B"] }, { name:"SS3", arms:["A","B","C"] },
+  ];
+  const firstNames = ["Chioma","Tunde","Aisha","Segun","Ifeoma","Kelechi","Amaka","Yusuf","Grace","Musa",
+    "Ronke","Uche","Halima","Obinna","Funmi","Bashir","Ngozi","Femi","Zainab","Chidinma"];
+  const lastNames = ["Adewale","Okonkwo","Bello","Chukwu","Balogun","Nwosu","Danladi","Effiong","Umeh","Sanni",
+    "Igwe","Yakubu","Eze","Adeyemi","Bakare","Etim"];
+
+  function seededRandom(seed){ let x = Math.sin(seed) * 10000; return x - Math.floor(x); }
+
+  let roster = [];
+
+  function nextLevel(level){
+    const idx = gradeProgression.indexOf(level);
+    return idx >= 0 && idx < gradeProgression.length - 1 ? gradeProgression[idx+1] : null;
+  }
+
+  function populateSelect(sel, options){
+    sel.innerHTML = options.map(o => `<option value="${o}">${o}</option>`).join('');
+  }
+
+  function onLevelChange(){
+    const level = document.getElementById('selLevel').value;
+    const cls = classData.find(c => c.name === level);
+    populateSelect(document.getElementById('selArm'), cls.arms);
+    loadRoster();
+  }
+
+  function loadRoster(){
+    const level = document.getElementById('selLevel').value;
+    const arm = document.getElementById('selArm').value;
+    const next = nextLevel(level);
+
+    document.getElementById('fromTag').textContent = `${level} ${arm} · 2025/2026`;
+    document.getElementById('toTag').textContent = next ? `${next} ${arm} · 2026/2027` : `Graduating · 2026/2027`;
+
+    const key = level + "|" + arm;
+    const seedBase = key.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
+    const count = 10 + Math.floor(seededRandom(seedBase) * 8);
+    roster = [];
+    for(let i = 0; i < count; i++){
+      const s = seedBase + i * 7;
+      const fn = firstNames[Math.floor(seededRandom(s) * firstNames.length)];
+      const ln = lastNames[Math.floor(seededRandom(s+1) * lastNames.length)];
+      roster.push({
+        name: `${fn} ${ln}`,
+        adm: `BPC-${1000 + Math.floor(seededRandom(s+2)*8000)}`,
+        action: 'promote'
+      });
+    }
+    document.getElementById('doneBanner').classList.remove('show');
+    renderRoster();
+  }
+
+  function renderRoster(){
+    const level = document.getElementById('selLevel').value;
+    const arm = document.getElementById('selArm').value;
+    const next = nextLevel(level);
+    document.getElementById('bulkCount').textContent = `${roster.length} students in ${level} ${arm}`;
+
+    document.getElementById('rosterBody').innerHTML = roster.map((r, i) => {
+      const rowClass = r.action === 'repeat' ? 'action-repeat' : r.action === 'withdraw' ? 'action-withdraw' : '';
+      let resultText, resultClass;
+      if(r.action === 'promote'){
+        resultText = next ? `→ ${next} ${arm}` : `→ Graduated`;
+        resultClass = 'result-promote';
+      } else if(r.action === 'repeat'){
+        resultText = `→ ${level} ${arm} (repeat)`;
+        resultClass = 'result-repeat';
+      } else {
+        resultText = `→ Withdrawn`;
+        resultClass = 'result-withdraw';
+      }
+      return `
+        <div class="p-row ${rowClass}">
+          <div class="col-student"><div class="n">${r.name}</div><div class="c">${r.adm}</div></div>
+          <div class="col-current">${level} ${arm}</div>
+          <div class="col-action">
+            <select class="action-select" onchange="setAction(${i}, this.value)">
+              <option value="promote" ${r.action==='promote'?'selected':''}>Promote</option>
+              <option value="repeat" ${r.action==='repeat'?'selected':''}>Repeat this class</option>
+              <option value="withdraw" ${r.action==='withdraw'?'selected':''}>Withdraw / not returning</option>
+            </select>
+          </div>
+          <div class="col-result ${resultClass}">${resultText}</div>
+        </div>
+      `;
+    }).join('');
+
+    renderSummary();
+  }
+
+  function setAction(idx, val){
+    roster[idx].action = val;
+    renderRoster();
+  }
+
+  function setAll(action){
+    roster.forEach(r => r.action = action);
+    renderRoster();
+  }
+
+  function renderSummary(){
+    const promote = roster.filter(r => r.action === 'promote').length;
+    const repeat = roster.filter(r => r.action === 'repeat').length;
+    const withdraw = roster.filter(r => r.action === 'withdraw').length;
+    document.getElementById('summaryBar').innerHTML = `
+      <div class="sstat success"><div class="label">Promoting</div><div class="value">${promote}</div></div>
+      <div class="sstat gold"><div class="label">Repeating</div><div class="value">${repeat}</div></div>
+      <div class="sstat rust"><div class="label">Withdrawing</div><div class="value">${withdraw}</div></div>
+    `;
+  }
+
+  function confirmPromotion(){
+    const level = document.getElementById('selLevel').value;
+    const arm = document.getElementById('selArm').value;
+    const next = nextLevel(level);
+    const promote = roster.filter(r => r.action === 'promote').length;
+    const repeat = roster.filter(r => r.action === 'repeat').length;
+    const withdraw = roster.filter(r => r.action === 'withdraw').length;
+
+    const banner = document.getElementById('doneBanner');
+    banner.classList.add('show');
+    banner.innerHTML = `
+      <div class="dt">✓ Promotion applied for ${level} ${arm}</div>
+      <div class="ds">${promote} promoted to ${next ? next + ' ' + arm : 'graduated'}, ${repeat} repeating ${level} ${arm}, ${withdraw} marked withdrawn. A new enrollment record was added for each student — prior charges and payments are untouched.</div>
+    `;
+    showToast('Promotion applied');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  populateSelect(document.getElementById('selLevel'), gradeProgression);
+  document.getElementById('selLevel').value = 'SS2';
+  onLevelChange();
+</script>
+
+</body>
+</html>
