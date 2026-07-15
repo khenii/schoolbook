@@ -1,23 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAppContext } from '../lib/AppContext';
-import { useActiveSession } from '../hooks/useActiveSession';
-import SessionBootstrap from '../components/SessionBootstrap';
+import SessionsTab from '../components/settings/SessionsTab';
 import ClassesArmsTab from '../components/settings/ClassesArmsTab';
 import FeeItemsTab from '../components/settings/FeeItemsTab';
 
 export default function SettingsPage() {
-  const { account } = useAppContext();
-  const { session: activeSession, isLoading } = useActiveSession();
-  const [tab, setTab] = useState<'classes' | 'fees'>('classes');
-
-  if (isLoading) return <p style={{ textAlign: 'center', marginTop: '4rem' }}>Loading…</p>;
-
-  if (!activeSession) {
-    // Reactive query above will pick up the new session automatically once
-    // created, so no manual state transition is needed here.
-    return <SessionBootstrap schoolId={account.school_id} onComplete={() => {}} />;
-  }
+  const [tab, setTab] = useState<'sessions' | 'classes' | 'fees'>('sessions');
 
   return (
     <div style={{ maxWidth: 720, margin: '2rem auto', padding: '0 1rem' }}>
@@ -30,6 +18,9 @@ export default function SettingsPage() {
       </p>
 
       <div style={{ display: 'flex', gap: 8, margin: '1.5rem 0' }}>
+        <button onClick={() => setTab('sessions')} disabled={tab === 'sessions'}>
+          Sessions
+        </button>
         <button onClick={() => setTab('classes')} disabled={tab === 'classes'}>
           Classes &amp; Arms
         </button>
@@ -38,7 +29,8 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {tab === 'classes' && <ClassesArmsTab activeSessionId={activeSession.id} />}
+      {tab === 'sessions' && <SessionsTab />}
+      {tab === 'classes' && <ClassesArmsTab />}
       {tab === 'fees' && <FeeItemsTab />}
     </div>
   );

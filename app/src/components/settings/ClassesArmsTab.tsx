@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../../lib/AppContext';
+import { useActiveSession } from '../../hooks/useActiveSession';
 
 interface ClassLevel {
   id: string;
@@ -14,15 +15,26 @@ interface ClassArm {
   name: string;
 }
 
-export default function ClassesArmsTab({ activeSessionId }: { activeSessionId: string }) {
+interface SessionOption {
+  id: string;
+  name: string;
+}
+
+export default function ClassesArmsTab() {
   const db = usePowerSync();
   const { account } = useAppContext();
   const schoolId = account.school_id;
 
+  const { data: sessions } = useQuery<SessionOption>('SELECT id, name FROM sessions ORDER BY name DESC');
+  const { session: activeSession } = useActiveSession();
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const viewingSessionId = selectedSessionId ?? activeSession?.id ?? sessions[0]?.id ?? null;
+
   const { data: levels } = useQuery<ClassLevel>('SELECT * FROM class_levels ORDER BY sort_order ASC');
-  const { data: arms } = useQuery<ClassArm>('SELECT * FROM class_arms WHERE session_id = ? ORDER BY name ASC', [
-    activeSessionId
-  ]);
+  const { data: arms } = useQuery<ClassArm>(
+    'SELECT * FROM class_arms WHERE session_id = ? ORDER BY name ASC',
+    [viewingSessionId ?? '']
+  );
 
   const [openLevelId, setOpenLevelId] = useState<string | null>(null);
   const [newArmName, setNewArmName] = useState<Record<string, string>>({});
@@ -77,13 +89,14 @@ export default function ClassesArmsTab({ activeSessionId }: { activeSessionId: s
   }
 
   async function addArm(levelId: string) {
+    if (!viewingSessionId) return;
     const name = (newArmName[levelId] ?? '').trim().toUpperCase();
     if (!name) return;
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     await db.execute(
       'INSERT INTO class_arms (id, school_id, class_level_id, session_id, name, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, schoolId, levelId, activeSessionId, name, now]
+      [id, schoolId, levelId, viewingSessionId, name, now]
     );
     setNewArmName((prev) => ({ ...prev, [levelId]: '' }));
   }
@@ -92,8 +105,23 @@ export default function ClassesArmsTab({ activeSessionId }: { activeSessionId: s
     await db.execute('DELETE FROM class_arms WHERE id = ?', [id]);
   }
 
+  if (!viewingSessionId) {
+    return <p>No sessions yet — add one in the Sessions tab first, then come back here to set up arms.</p>;
+  }
+
   return (
     <div>
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, color: '#888', marginRight: 8 }}>Viewing session:</label>
+        <select value={viewingSessionId} onChange={(e) => setSelectedSessionId(e.target.value)}>
+          {sessions.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+              {activeSession?.id === s.id ? ' (active)' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
       <p style={{ color: 'var(--color-slate)', fontSize: 13 }}>
         Add arms to any class level — e.g. split SS3 into A, B, C. Levels with no arms yet use a single default
         section.
