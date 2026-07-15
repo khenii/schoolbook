@@ -10,7 +10,7 @@ export default function DashboardPage({ syncStatus }: { syncStatus: string }) {
       <p>Logged in as {session.user.email}</p>
       <p>PowerSync status: {syncStatus}</p>
       <p>
-        <Link to="/settings">Settings</Link>
+        <Link to="/students">Students</Link> · <Link to="/settings">Settings</Link>
       </p>
       <button onClick={() => supabase.auth.signOut()}>Log out</button>
     </div>

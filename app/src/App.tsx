@@ -12,6 +12,9 @@ import SchoolSetupForm from './components/SchoolSetupForm';
 import ClassLevelSetup from './components/ClassLevelSetup';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
+import StudentsPage from './pages/StudentsPage';
+import AddStudentPage from './pages/AddStudentPage';
+import StudentDetailPage from './pages/StudentDetailPage';
 
 type AppState =
   | { step: 'loading' }
@@ -82,6 +85,9 @@ function Shell() {
             <Routes>
               <Route path="/" element={<DashboardPage syncStatus={syncStatus} />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/students" element={<StudentsPage />} />
+              <Route path="/students/new" element={<AddStudentPage />} />
+              <Route path="/students/:id" element={<StudentDetailPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BrowserRouter>
