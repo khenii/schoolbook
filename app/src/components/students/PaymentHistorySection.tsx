@@ -7,16 +7,24 @@ import { logAudit } from '../../lib/auditLog';
 
 type PaymentRow = ReturnType<typeof useStudentLedger>['payments'][number];
 
+const METHOD_LABEL: Record<string, string> = {
+  cash: 'Cash',
+  'bank-transfer': 'Bank transfer',
+  pos: 'POS',
+  other: 'Other'
+};
+
+// "Recent payments" table-wrap from 05-student-profile.html, using
+// .payment-log-row. Extends the mockup's flat list with what the real app
+// already needed: grouping by household_transaction_id (one row per amount
+// actually received, matching a receipt book), a void action, and a
+// cross-reference note when a sibling's payment covered part of the same
+// household transaction.
 export default function PaymentHistorySection({ studentId }: { studentId: string }) {
   const db = usePowerSync();
   const { account } = useAppContext();
   const { payments, charges } = useStudentLedger(studentId);
 
-  // A payment row can be voided at most once — reversals target the
-  // original payment's id via void_of_payment_id, never edit or delete it
-  // (payments has no UPDATE/DELETE policy at all). This tracks which
-  // originals already have a reversal, so the action doesn't offer to
-  // double-void something.
   const voidedOriginalIds = useMemo(() => {
     const ids = new Set<string>();
     for (const p of payments) {
@@ -72,16 +80,8 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
     }
   }
 
-  const chargeLabel = (chargeId: string) => {
-    const c = charges.find((x) => x.id === chargeId);
-    return c ? `${c.feeItemName} — ${c.sessionName} ${c.termName}` : chargeId;
-  };
+  const chargeFor = (chargeId: string) => charges.find((x) => x.id === chargeId);
 
-  // A payment recorded from the Household Payment page can cover this
-  // student AND siblings in one go (spec §3.6). This student's own rows
-  // above only show their own slice — cross-reference siblings sharing the
-  // same household_transaction_id so it's clear, from this page alone,
-  // that the full amount received was bigger and where the rest went.
   const { data: studentRows } = useQuery<{ household_id: string | null }>(
     'SELECT household_id FROM students WHERE id = ?',
     [studentId]
@@ -114,22 +114,13 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
     return map;
   }, [siblingPayments]);
 
-  // Payments recorded in one go (e.g. a single ₦30,000 cash receipt split
-  // across School Fees + Uniform) share a transaction id. Group them back
-  // together for display so this screen shows one line per amount actually
-  // received — matching what a receipt book or bank statement would show —
-  // with the per-charge breakdown available on expand rather than scattered
-  // across separate rows.
   const groups = useMemo(() => {
     const map = new Map<string, typeof payments>();
     for (const p of payments) {
       const key = p.household_transaction_id ?? p.id;
       const existing = map.get(key);
-      if (existing) {
-        existing.push(p);
-      } else {
-        map.set(key, [p]);
-      }
+      if (existing) existing.push(p);
+      else map.set(key, [p]);
     }
     return Array.from(map.entries()).map(([key, rows]) => ({
       key,
@@ -150,121 +141,110 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
       return next;
     });
 
+  if (groups.length === 0) {
+    return <div className="empty-note">No payments recorded yet.</div>;
+  }
+
   return (
-    <div style={{ margin: '1.5rem 0' }}>
-      <h2>Payment history</h2>
-      {groups.length === 0 ? (
-        <p style={{ color: '#888', fontSize: 12.5 }}>No payments recorded yet.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd', fontSize: 12 }}>
-              <th style={{ padding: 6 }}>Date</th>
-              <th style={{ padding: 6 }}>Amount received</th>
-              <th style={{ padding: 6 }}>Method</th>
-              <th style={{ padding: 6 }}>Receipt #</th>
-              <th style={{ padding: 6 }} />
-            </tr>
-          </thead>
-          <tbody>
-            {groups.map((g) => {
-              const siblingInfo = siblingByTxn.get(g.key);
-              const singleRow = g.rows.length === 1 ? g.rows[0] : null;
-              const singleRowIsVoid = !!singleRow?.void_of_payment_id;
-              const singleRowIsVoided = !!singleRow && voidedOriginalIds.has(singleRow.id);
-              const singleRowVoidable = !!singleRow && !singleRowIsVoid && !singleRowIsVoided && singleRow.amount_paid > 0;
-              return (
-              <Fragment key={g.key}>
-                <tr style={{ borderBottom: siblingInfo ? 'none' : '1px solid #eee', fontSize: 13 }}>
-                  <td style={{ padding: 6 }}>{g.date}</td>
-                  <td style={{ padding: 6, fontWeight: 600 }}>
-                    ₦{g.total.toLocaleString()}
-                    {g.rows.length > 1 && (
-                      <span style={{ color: '#888', fontWeight: 400 }}> ({g.rows.length} charges)</span>
-                    )}
-                    {singleRowIsVoid && (
-                      <span style={{ color: 'crimson', fontWeight: 400 }} title={singleRow?.void_reason ?? ''}>
-                        {' '}
-                        (void)
+    <div className="table-wrap">
+      {groups.map((g) => {
+        const siblingInfo = siblingByTxn.get(g.key);
+        const singleRow = g.rows.length === 1 ? g.rows[0] : null;
+        const singleRowIsVoid = !!singleRow?.void_of_payment_id;
+        const singleRowIsVoided = !!singleRow && voidedOriginalIds.has(singleRow.id);
+        const singleRowVoidable = !!singleRow && !singleRowIsVoid && !singleRowIsVoided && singleRow.amount_paid > 0;
+        const firstCharge = chargeFor(g.rows[0].charge_id);
+
+        return (
+          <Fragment key={g.key}>
+            <div className="payment-log-row">
+              <div className="plog-date">{g.date}</div>
+              <div className="plog-desc">
+                <div className="f">
+                  {g.rows.length > 1
+                    ? `${g.rows.length} charges`
+                    : (firstCharge?.feeItemName ?? 'Payment')}
+                  {singleRowIsVoid && (
+                    <span style={{ color: 'var(--rust)', fontWeight: 400 }} title={singleRow?.void_reason ?? ''}>
+                      {' '}
+                      (void)
+                    </span>
+                  )}
+                  {singleRowIsVoided && <span style={{ color: 'var(--slate-soft)', fontWeight: 400 }}> (voided)</span>}
+                </div>
+                <div className="s">
+                  {g.rows.length === 1 ? `${firstCharge?.sessionName ?? ''} ${firstCharge?.termName ?? ''}` : 'Split across charges'}
+                </div>
+              </div>
+              <div className="plog-method">{METHOD_LABEL[g.method] ?? g.method}</div>
+              <div className="plog-amt">+₦{g.total.toLocaleString()}</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {g.rows.length > 1 && (
+                  <span className="mini-btn" onClick={() => toggle(g.key)}>
+                    {expanded.has(g.key) ? 'Hide' : 'Breakdown'}
+                  </span>
+                )}
+                {singleRow && singleRowVoidable && (
+                  <span
+                    className="mini-btn"
+                    style={{ color: 'var(--rust)', opacity: voiding === singleRow.id ? 0.5 : 1 }}
+                    onClick={() => handleVoid(singleRow)}
+                  >
+                    {voiding === singleRow.id ? '…' : 'Void'}
+                  </span>
+                )}
+                <Link className="mini-btn" to={`/receipt/${g.key}`} style={{ textDecoration: 'none' }}>
+                  Receipt
+                </Link>
+              </div>
+            </div>
+
+            {g.rows.length > 1 && expanded.has(g.key) && (
+              <div style={{ padding: '0 16px 10px 106px', background: 'var(--paper)' }}>
+                {g.rows.map((r) => {
+                  const c = chargeFor(r.charge_id);
+                  const isVoid = !!r.void_of_payment_id;
+                  const isVoided = voidedOriginalIds.has(r.id);
+                  const voidable = !isVoid && !isVoided && r.amount_paid > 0;
+                  return (
+                    <div
+                      key={r.id}
+                      style={{ fontSize: 12, color: 'var(--slate)', padding: '4px 0', display: 'flex', alignItems: 'center', gap: 8 }}
+                    >
+                      <span style={{ flex: 1 }}>
+                        {c ? `${c.feeItemName} — ${c.sessionName} ${c.termName}` : r.charge_id} — ₦
+                        {r.amount_paid.toLocaleString()}
+                        {isVoid && (
+                          <span style={{ color: 'var(--rust)' }} title={r.void_reason ?? ''}>
+                            {' '}
+                            (void)
+                          </span>
+                        )}
+                        {isVoided && <span style={{ color: 'var(--slate-soft)' }}> (voided)</span>}
                       </span>
-                    )}
-                    {singleRowIsVoided && <span style={{ color: '#888', fontWeight: 400 }}> (voided)</span>}
-                  </td>
-                  <td style={{ padding: 6 }}>{g.method}</td>
-                  <td style={{ padding: 6 }}>{g.receiptNumber ?? '—'}</td>
-                  <td style={{ padding: 6, textAlign: 'right' }}>
-                    {g.rows.length > 1 && (
-                      <button onClick={() => toggle(g.key)} style={{ fontSize: 11 }}>
-                        {expanded.has(g.key) ? 'Hide breakdown' : 'Show breakdown'}
-                      </button>
-                    )}
-                    {singleRow && singleRowVoidable && (
-                      <button onClick={() => handleVoid(singleRow)} disabled={voiding === singleRow.id} style={{ fontSize: 11 }}>
-                        {voiding === singleRow.id ? '…' : 'Void'}
-                      </button>
-                    )}{' '}
-                    <Link to={`/receipt/${g.key}`} style={{ fontSize: 11 }}>
-                      Receipt
-                    </Link>
-                  </td>
-                </tr>
-                {g.rows.length > 1 && expanded.has(g.key) && (
-                  <tr>
-                    <td colSpan={5} style={{ padding: '0 6px 8px 24px' }}>
-                      {g.rows.map((r) => {
-                        const isVoid = !!r.void_of_payment_id;
-                        const isVoided = voidedOriginalIds.has(r.id);
-                        const voidable = !isVoid && !isVoided && r.amount_paid > 0;
-                        return (
-                          <div
-                            key={r.id}
-                            style={{
-                              fontSize: 12,
-                              color: '#555',
-                              padding: '2px 0',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 8
-                            }}
-                          >
-                            <span style={{ flex: 1 }}>
-                              {chargeLabel(r.charge_id)} — ₦{r.amount_paid.toLocaleString()}
-                              {isVoid && (
-                                <span style={{ color: 'crimson' }} title={r.void_reason ?? ''}>
-                                  {' '}
-                                  (void)
-                                </span>
-                              )}
-                              {isVoided && <span style={{ color: '#888' }}> (voided)</span>}
-                            </span>
-                            {voidable && (
-                              <button onClick={() => handleVoid(r)} disabled={voiding === r.id} style={{ fontSize: 10.5 }}>
-                                {voiding === r.id ? '…' : 'Void'}
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </td>
-                  </tr>
-                )}
-                {siblingInfo && (
-                  <tr style={{ borderBottom: '1px solid #eee' }}>
-                    <td colSpan={5} style={{ padding: '0 6px 8px 6px', fontSize: 11.5, color: '#b8860b' }}>
-                      Part of a ₦{(g.total + siblingInfo.total).toLocaleString()} household payment — also covers{' '}
-                      {Array.from(siblingInfo.byChild.entries())
-                        .map(([name, amount]) => `${name} (₦${amount.toLocaleString()})`)
-                        .join(', ')}
-                      . Full breakdown on the Household Payment page.
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
+                      {voidable && (
+                        <span className="mini-btn" style={{ color: 'var(--rust)' }} onClick={() => handleVoid(r)}>
+                          {voiding === r.id ? '…' : 'Void'}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {siblingInfo && (
+              <div style={{ padding: '0 16px 10px 106px', fontSize: 11.5, color: 'var(--gold)', background: 'var(--paper)' }}>
+                Part of a ₦{(g.total + siblingInfo.total).toLocaleString()} household payment — also covers{' '}
+                {Array.from(siblingInfo.byChild.entries())
+                  .map(([name, amount]) => `${name} (₦${amount.toLocaleString()})`)
+                  .join(', ')}
+                . Full breakdown on the Household Payment page.
+              </div>
+            )}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }

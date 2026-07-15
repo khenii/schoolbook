@@ -20,7 +20,6 @@ import AuditLogPage from './pages/AuditLogPage';
 import ImportPage from './pages/ImportPage';
 import SettingsPage from './pages/SettingsPage';
 import StudentsPage from './pages/StudentsPage';
-import AddStudentPage from './pages/AddStudentPage';
 import StudentDetailPage from './pages/StudentDetailPage';
 
 type AppState =
@@ -100,7 +99,7 @@ function Shell() {
               <Route path="/import" element={<ImportPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/students" element={<StudentsPage />} />
-              <Route path="/students/new" element={<AddStudentPage />} />
+              <Route path="/students/new" element={<Navigate to="/students?add=1" replace />} />
               <Route path="/students/:id" element={<StudentDetailPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

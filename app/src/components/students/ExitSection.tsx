@@ -13,47 +13,162 @@ interface StudentSummary {
 
 type ExitStatus = 'withdrawn' | 'graduated';
 
-export default function ExitSection({ student }: { student: StudentSummary }) {
+// The mockup's exit reason select has 4 options (Graduated / Transferred /
+// Withdrawn / Other) but the schema only has two lifecycle statuses
+// (withdrawn, graduated) — spec §3.11 deliberately keeps it to those two,
+// since "why they left" beyond that is free text, not something the rest
+// of the app needs to branch on. Transferred/Other both map to 'withdrawn'.
+const REASON_OPTIONS: { value: string; label: string; status: ExitStatus }[] = [
+  { value: 'graduated', label: 'Graduated', status: 'graduated' },
+  { value: 'transferred', label: 'Transferred to another school', status: 'withdrawn' },
+  { value: 'withdrawn', label: 'Withdrawn by parent/guardian', status: 'withdrawn' },
+  { value: 'other', label: 'Other', status: 'withdrawn' }
+];
+
+// The "Withdraw student" slide-over from 05-student-profile.html.
+export function ExitPanel({
+  open,
+  onClose,
+  student,
+  onSaved
+}: {
+  open: boolean;
+  onClose: () => void;
+  student: StudentSummary;
+  onSaved: (message: string) => void;
+}) {
   const db = usePowerSync();
   const { account } = useAppContext();
-  const { totalOutstanding, totalArrears, currentTermBalance, payments } = useStudentLedger(student.id);
+  const { totalOutstanding, currentTermBalance, totalArrears } = useStudentLedger(student.id);
 
-  const [open, setOpen] = useState(false);
-  const [exitStatus, setExitStatus] = useState<ExitStatus>('withdrawn');
-  const [reason, setReason] = useState('');
+  const [reasonOption, setReasonOption] = useState('graduated');
+  const [notes, setNotes] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [reactivating, setReactivating] = useState(false);
 
-  const isActive = student.status === 'new' || student.status === 'existing';
   const hasBalance = totalOutstanding > 0;
 
   async function handleConfirm() {
+    const opt = REASON_OPTIONS.find((r) => r.value === reasonOption)!;
     setSaving(true);
     try {
       await db.writeTransaction(async (tx) => {
         await tx.execute('UPDATE students SET status = ?, status_changed_at = ?, status_reason = ? WHERE id = ?', [
-          exitStatus,
+          opt.status,
           new Date().toISOString(),
-          reason.trim() || null,
+          `${opt.label}${notes.trim() ? ` — ${notes.trim()}` : ''}`,
           student.id
         ]);
         await logAudit(tx, {
           schoolId: account.school_id,
           actorId: account.id,
-          action: exitStatus === 'withdrawn' ? 'student.withdrawn' : 'student.graduated',
+          action: opt.status === 'withdrawn' ? 'student.withdrawn' : 'student.graduated',
           entityType: 'student',
           entityId: student.id,
-          metadata: { reason: reason.trim() || null, outstandingBalance: totalOutstanding }
+          metadata: { reason: opt.label, notes: notes.trim() || null, outstandingBalance: totalOutstanding }
         });
       });
-      setOpen(false);
-      setReason('');
+      setNotes('');
       setAcknowledged(false);
+      onSaved(`Marked as ${opt.status} — removed from active rosters`);
     } finally {
       setSaving(false);
     }
   }
+
+  return (
+    <>
+      <div className={`overlay${open ? ' show' : ''}`} onClick={onClose} />
+      <div className={`panel${open ? ' show' : ''}`}>
+        <div className="panel-head">
+          <div>
+            <h3>Withdraw student</h3>
+            <p>Review outstanding balances before marking this record inactive.</p>
+          </div>
+          <div className="panel-close" onClick={onClose}>
+            ✕
+          </div>
+        </div>
+        <div className="panel-body">
+          <div className={`exit-balance-box ${hasBalance ? 'has-balance' : 'clear'}`}>
+            {hasBalance ? (
+              <>
+                <div style={{ fontWeight: 700, color: 'var(--rust)', fontSize: 12.5, marginBottom: 6 }}>
+                  ⚠ This student still owes money
+                </div>
+                <div className="exit-balance-row">
+                  <div>Current term balance</div>
+                  <div>₦{currentTermBalance.toLocaleString()}</div>
+                </div>
+                <div className="exit-balance-row">
+                  <div>Arrears from prior sessions</div>
+                  <div>₦{totalArrears.toLocaleString()}</div>
+                </div>
+                <div className="exit-balance-row total">
+                  <div>Total outstanding</div>
+                  <div>₦{totalOutstanding.toLocaleString()}</div>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontWeight: 700, color: 'var(--success)', fontSize: 12.5 }}>
+                ✓ No outstanding balance — this student is fully cleared.
+              </div>
+            )}
+          </div>
+
+          <div className="field">
+            <label>Reason for leaving</label>
+            <select value={reasonOption} onChange={(e) => setReasonOption(e.target.value)}>
+              {REASON_OPTIONS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Notes (optional)</label>
+            <textarea
+              placeholder="Any additional context for the record…"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+
+          <div className="confirm-check">
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(e) => setAcknowledged(e.target.checked)}
+              id="exitAck"
+            />
+            <label htmlFor="exitAck">
+              I understand this does not clear or forgive any outstanding balance — it only marks the student as
+              inactive. Balances remain on file and can still be collected or written off separately.
+            </label>
+          </div>
+        </div>
+        <div className="panel-foot">
+          <button
+            className="btn-primary"
+            style={{ width: '100%', background: 'var(--rust)' }}
+            onClick={handleConfirm}
+            disabled={saving || !acknowledged}
+          >
+            {saving ? 'Saving…' : 'Confirm withdrawal'}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// The "no longer active" banner at the top of the profile, shown instead of
+// the exit trigger once a student is withdrawn/graduated.
+export function InactiveBanner({ student }: { student: StudentSummary }) {
+  const db = usePowerSync();
+  const { account } = useAppContext();
+  const [reactivating, setReactivating] = useState(false);
 
   async function handleReactivate() {
     setReactivating(true);
@@ -78,118 +193,17 @@ export default function ExitSection({ student }: { student: StudentSummary }) {
     }
   }
 
-  if (!isActive) {
-    return (
-      <div style={{ margin: '1.5rem 0', padding: 12, border: '1px solid #eee', borderRadius: 8 }}>
-        <p style={{ margin: 0, fontSize: 13 }}>
-          <strong style={{ textTransform: 'capitalize' }}>{student.status}</strong>
-          {student.status_changed_at && ` on ${new Date(student.status_changed_at).toLocaleDateString()}`}
-          {student.status_reason && ` — ${student.status_reason}`}
-        </p>
-        <p style={{ fontSize: 12, color: '#888', margin: '4px 0 8px' }}>
-          Excluded from active rosters, the Class Register, and defaulter/collection reports by default. Their
-          balance, payment history, and notes remain fully visible here.
-        </p>
-        <button onClick={handleReactivate} disabled={reactivating} style={{ fontSize: 12 }}>
-          {reactivating ? 'Reactivating…' : 'Reactivate (mark as existing)'}
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ margin: '1.5rem 0' }}>
-      {!open ? (
-        <button onClick={() => setOpen(true)} style={{ fontSize: 12.5 }}>
-          Withdraw / graduate this student
-        </button>
-      ) : (
-        <div style={{ padding: 14, border: '1px solid #ddd', borderRadius: 8 }}>
-          <h3 style={{ marginTop: 0, fontSize: 14 }}>Exit checklist</h3>
-          <p style={{ fontSize: 12.5, color: '#555' }}>
-            Before marking this student inactive, here's where their account stands. Marking them withdrawn or
-            graduated does <strong>not</strong> clear or write off any balance — it stays on their record exactly as
-            it is. {payments.length} payment{payments.length === 1 ? '' : 's'} on file.
-          </p>
-
-          <div style={{ display: 'flex', gap: 24, margin: '10px 0' }}>
-            <div>
-              <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase' }}>Current term balance</div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: currentTermBalance > 0 ? 'crimson' : 'inherit' }}>
-                ₦{currentTermBalance.toLocaleString()}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase' }}>Arrears</div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: totalArrears > 0 ? 'crimson' : 'inherit' }}>
-                ₦{totalArrears.toLocaleString()}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase' }}>Total outstanding</div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: totalOutstanding > 0 ? 'crimson' : 'inherit' }}>
-                ₦{totalOutstanding.toLocaleString()}
-              </div>
-            </div>
-          </div>
-
-          {hasBalance && (
-            <p style={{ fontSize: 12.5, color: 'crimson', background: '#FBEBE9', padding: 8, borderRadius: 6 }}>
-              This student has an outstanding balance of ₦{totalOutstanding.toLocaleString()}. It will remain on
-              their record after this — to forgive it instead, use a write-off from the charges table above.
-            </p>
-          )}
-
-          <div style={{ display: 'flex', gap: 16, margin: '10px 0' }}>
-            <label style={{ fontSize: 13 }}>
-              <input
-                type="radio"
-                checked={exitStatus === 'withdrawn'}
-                onChange={() => setExitStatus('withdrawn')}
-              />{' '}
-              Withdrawn
-            </label>
-            <label style={{ fontSize: 13 }}>
-              <input
-                type="radio"
-                checked={exitStatus === 'graduated'}
-                onChange={() => setExitStatus('graduated')}
-              />{' '}
-              Graduated
-            </label>
-          </div>
-
-          <input
-            placeholder="Reason (optional)"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            style={{ width: '100%', marginBottom: 8 }}
-          />
-
-          {hasBalance && (
-            <label style={{ fontSize: 12.5, display: 'block', marginBottom: 8 }}>
-              <input type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} /> I
-              understand this balance stays on the record and isn't cleared by this action.
-            </label>
-          )}
-
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handleConfirm} disabled={saving || (hasBalance && !acknowledged)}>
-              {saving ? 'Saving…' : `Confirm ${exitStatus === 'withdrawn' ? 'withdrawal' : 'graduation'}`}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                setAcknowledged(false);
-                setReason('');
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+    <div className="inactive-banner">
+      <div className="ib-icon">🗂</div>
+      <div className="ib-text">
+        <b>This student is no longer active.</b> {student.status_reason ?? student.status}
+        {student.status_changed_at && ` · ${new Date(student.status_changed_at).toLocaleDateString()}`}. Excluded
+        from active rosters and reports, but the full record remains accessible here.
+      </div>
+      <a onClick={handleReactivate} style={{ opacity: reactivating ? 0.5 : 1 }}>
+        {reactivating ? 'Reactivating…' : 'Reactivate'}
+      </a>
     </div>
   );
 }

@@ -31,6 +31,10 @@ interface ClassLevelRow {
   name: string;
 }
 
+// The "household-card" from 05-student-profile.html. The mockup only shows
+// the linked state (siblings already found); the "not linked yet" state
+// below is a real, necessary case the mockup doesn't cover, styled to match
+// the same family of components rather than left as a bare list.
 export default function HouseholdSection({ student }: { student: StudentSummary }) {
   const db = usePowerSync();
   const { account } = useAppContext();
@@ -52,7 +56,7 @@ export default function HouseholdSection({ student }: { student: StudentSummary 
     const arm = arms.find((a) => a.id === armId);
     if (!arm) return '';
     const level = levels.find((l) => l.id === arm.class_level_id);
-    return ` (${level?.name ?? ''} ${arm.name})`;
+    return `${level?.name ?? ''} ${arm.name}`.trim();
   };
 
   const siblings = allStudents.filter((s) => s.household_id === student.household_id && s.id !== student.id);
@@ -92,61 +96,69 @@ export default function HouseholdSection({ student }: { student: StudentSummary 
     }
   }
 
-  return (
-    <div style={{ marginTop: '2rem' }}>
-      <h2>Household</h2>
-
-      {student.household_id ? (
-        <div>
-          <p>
-            <strong>{household?.name ?? 'Household'}</strong>
-            {household?.phone ? ` · ${household.phone}` : ''}
-          </p>
+  if (student.household_id) {
+    return (
+      <div className="household-card">
+        <div className="household-icon">👪</div>
+        <div className="household-body">
+          <div className="household-title">
+            {household?.name ?? 'Household'}
+            {siblings.length > 0 ? ` — ${siblings.length} sibling${siblings.length === 1 ? '' : 's'} also enrolled` : ''}
+          </div>
           {siblings.length > 0 ? (
-            <ul>
+            <div className="household-siblings">
               {siblings.map((s) => (
-                <li key={s.id}>
-                  <Link to={`/students/${s.id}`}>
+                <Link key={s.id} to={`/students/${s.id}`} style={{ textDecoration: 'none' }}>
+                  <span className="sibling-chip">
                     {s.first_name} {s.last_name}
-                  </Link>
-                  {armLabel(s.current_class_arm_id)}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p style={{ fontSize: 12.5, color: '#888' }}>No other students linked to this household yet.</p>
-          )}
-        </div>
-      ) : (
-        <div>
-          <p style={{ fontSize: 12.5, color: '#888' }}>
-            Not linked to a household yet. Search by name or guardian phone to link a sibling the system didn't
-            catch automatically (e.g. the guardian used a different number at enrollment).
-          </p>
-          <input
-            placeholder="Search students by name or guardian phone"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: '100%' }}
-          />
-          {searchResults.length > 0 && (
-            <ul style={{ marginTop: 8 }}>
-              {searchResults.map((s) => (
-                <li key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-                  <span style={{ flex: 1 }}>
-                    {s.first_name} {s.last_name}
-                    {armLabel(s.current_class_arm_id)}
-                    {s.guardian_phone ? ` · ${s.guardian_phone}` : ''}
+                    {armLabel(s.current_class_arm_id) && ` · ${armLabel(s.current_class_arm_id)}`}
                   </span>
-                  <button onClick={() => handleLink(s.id)} disabled={linking === s.id}>
-                    {linking === s.id ? 'Linking…' : 'Link as household'}
-                  </button>
-                </li>
+                </Link>
               ))}
-            </ul>
+            </div>
+          ) : (
+            <div style={{ fontSize: 11.5, color: 'var(--slate-soft)' }}>No other students linked yet.</div>
           )}
         </div>
-      )}
+        <Link className="btn-ghost" to="/household-payment" style={{ textDecoration: 'none', display: 'inline-block' }}>
+          Pay for whole family →
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="household-card" style={{ background: 'var(--paper)', alignItems: 'flex-start' }}>
+      <div className="household-icon">👪</div>
+      <div className="household-body">
+        <div className="household-title">Not linked to a household yet</div>
+        <div style={{ fontSize: 11.5, color: 'var(--slate-soft)', marginBottom: 8 }}>
+          Search by name or guardian phone to link a sibling the system didn't catch automatically.
+        </div>
+        <input
+          type="text"
+          placeholder="Search students by name or guardian phone"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: '100%', maxWidth: 340 }}
+        />
+        {searchResults.length > 0 && (
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {searchResults.map((s) => (
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+                <span style={{ flex: 1 }}>
+                  {s.first_name} {s.last_name}
+                  {armLabel(s.current_class_arm_id) && ` · ${armLabel(s.current_class_arm_id)}`}
+                  {s.guardian_phone ? ` · ${s.guardian_phone}` : ''}
+                </span>
+                <span className="mini-btn" onClick={() => handleLink(s.id)}>
+                  {linking === s.id ? 'Linking…' : 'Link as household'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

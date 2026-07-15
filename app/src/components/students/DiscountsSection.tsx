@@ -9,6 +9,7 @@ interface DiscountRow {
   type: 'percent' | 'fixed';
   value: number;
   reason: string;
+  applied_by: string | null;
   active: number;
   created_at: string;
   removed_at: string | null;
@@ -19,8 +20,19 @@ interface FeeItemRow {
   name: string;
 }
 
+interface AccountRow {
+  id: string;
+  email: string;
+}
+
 type DiscountType = 'percent' | 'fixed';
 
+// "Discounts & waivers" section + its slide-over "Add a discount" panel,
+// from 05-student-profile.html. Standing rules only take effect the next
+// time a charge is generated (enrollment or a new term) — never rewriting
+// a charge that already exists, so the mockup's "apply to this term's
+// charge right now" checkbox is intentionally left out here; to adjust an
+// existing charge, use a write-off instead (spec §3.10).
 export default function DiscountsSection({ studentId }: { studentId: string }) {
   const db = usePowerSync();
   const { account } = useAppContext();
@@ -31,14 +43,16 @@ export default function DiscountsSection({ studentId }: { studentId: string }) {
     [studentId]
   );
   const { data: feeItems } = useQuery<FeeItemRow>('SELECT id, name FROM fee_items ORDER BY name ASC');
+  const { data: accounts } = useQuery<AccountRow>('SELECT id, email FROM accounts');
 
   const feeItemName = (id: string) => feeItems.find((f) => f.id === id)?.name ?? id;
+  const byLabel = (id: string | null) => accounts.find((a) => a.id === id)?.email ?? 'Unknown';
 
   const active = discounts.filter((d) => d.active);
   const removed = discounts.filter((d) => !d.active);
 
   const [showRemoved, setShowRemoved] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [feeItemId, setFeeItemId] = useState('');
   const [type, setType] = useState<DiscountType>('percent');
   const [value, setValue] = useState('');
@@ -47,13 +61,13 @@ export default function DiscountsSection({ studentId }: { studentId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
 
-  function resetForm() {
-    setAdding(false);
+  function openPanel() {
     setFeeItemId('');
     setType('percent');
     setValue('');
     setReason('');
     setError(null);
+    setPanelOpen(true);
   }
 
   async function handleAdd() {
@@ -68,11 +82,11 @@ export default function DiscountsSection({ studentId }: { studentId: string }) {
       return;
     }
     if (type === 'percent' && numValue > 100) {
-      setError('A percentage discount can\'t exceed 100.');
+      setError("A percentage discount can't exceed 100.");
       return;
     }
     if (!reason.trim()) {
-      setError('A reason is required.');
+      setError('A reason is required before a discount can be applied.');
       return;
     }
     if (active.some((d) => d.fee_item_id === feeItemId)) {
@@ -94,10 +108,10 @@ export default function DiscountsSection({ studentId }: { studentId: string }) {
           action: 'discount.applied',
           entityType: 'discount',
           entityId: discountId,
-          metadata: { studentId, feeItemId: feeItemId, type, value: numValue, reason: reason.trim() }
+          metadata: { studentId, feeItemId, type, value: numValue, reason: reason.trim() }
         });
       });
-      resetForm();
+      setPanelOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -128,108 +142,137 @@ export default function DiscountsSection({ studentId }: { studentId: string }) {
   }
 
   return (
-    <div style={{ margin: '1.5rem 0' }}>
-      <h2 style={{ marginBottom: 4 }}>Discounts</h2>
-      <p style={{ fontSize: 12, color: '#888', marginTop: 0 }}>
-        Standing rules, not one-time adjustments — they apply the next time a charge is generated for this student
-        (enrollment or a new term's recurring charges), not to charges that already exist. To adjust a charge that's
-        already been created, use a write-off instead.
-      </p>
-
-      {active.length === 0 ? (
-        <p style={{ fontSize: 12.5, color: '#888' }}>No active discounts.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd', fontSize: 12 }}>
-              <th style={{ padding: 6 }}>Fee item</th>
-              <th style={{ padding: 6 }}>Discount</th>
-              <th style={{ padding: 6 }}>Reason</th>
-              <th style={{ padding: 6 }} />
-            </tr>
-          </thead>
-          <tbody>
-            {active.map((d) => (
-              <tr key={d.id} style={{ borderBottom: '1px solid #eee', fontSize: 13 }}>
-                <td style={{ padding: 6 }}>{feeItemName(d.fee_item_id)}</td>
-                <td style={{ padding: 6 }}>{d.type === 'percent' ? `${d.value}%` : `₦${d.value.toLocaleString()}`}</td>
-                <td style={{ padding: 6, color: '#555' }}>{d.reason}</td>
-                <td style={{ padding: 6 }}>
-                  <button onClick={() => handleRemove(d)} disabled={removing === d.id} style={{ fontSize: 11 }}>
-                    {removing === d.id ? '…' : 'Remove'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {adding ? (
-        <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select value={feeItemId} onChange={(e) => setFeeItemId(e.target.value)}>
-            <option value="" disabled>
-              Fee item
-            </option>
-            {feeItems.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-          <select value={type} onChange={(e) => setType(e.target.value as DiscountType)}>
-            <option value="percent">Percent</option>
-            <option value="fixed">Fixed amount</option>
-          </select>
-          <input
-            type="number"
-            placeholder={type === 'percent' ? 'e.g. 10' : 'e.g. 5000'}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            style={{ width: 100 }}
-          />
-          <input
-            placeholder="Reason (required)"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            style={{ flex: 1, minWidth: 200 }}
-          />
-          <button onClick={handleAdd} disabled={saving}>
-            {saving ? 'Saving…' : 'Add discount'}
-          </button>
-          <button type="button" onClick={resetForm}>
-            Cancel
-          </button>
-          {error && <p style={{ color: 'crimson', fontSize: 12, width: '100%', margin: 0 }}>{error}</p>}
+    <div className="section">
+      <div className="section-title">
+        <div>
+          <h3>Discounts &amp; waivers</h3>
+          <p>
+            Standing rules that reduce what this student is charged going forward — different from a write-off,
+            which forgives an amount already charged.
+          </p>
         </div>
-      ) : (
-        <button onClick={() => setAdding(true)} style={{ marginTop: 8, fontSize: 12.5 }}>
+        <button className="btn-ghost" onClick={openPanel}>
           + Add discount
         </button>
+      </div>
+
+      {active.length === 0 ? (
+        <div className="no-discounts">No standing discounts on this record.</div>
+      ) : (
+        active.map((d) => (
+          <div className="discount-card" key={d.id}>
+            <div className="discount-icon">%</div>
+            <div className="discount-body">
+              <div className="discount-top">
+                <div className="discount-fee">{feeItemName(d.fee_item_id)}</div>
+                <div className="discount-val">
+                  {d.type === 'percent' ? `${d.value}% off` : `₦${d.value.toLocaleString()} off`} every charge
+                </div>
+              </div>
+              <div className="discount-reason">"{d.reason}"</div>
+              <div className="discount-meta">
+                {byLabel(d.applied_by ?? null)} · {new Date(d.created_at).toLocaleDateString()}
+              </div>
+            </div>
+            <div
+              className="discount-remove"
+              onClick={() => handleRemove(d)}
+              title="Remove this standing discount"
+              style={{ opacity: removing === d.id ? 0.5 : 1 }}
+            >
+              ✕
+            </div>
+          </div>
+        ))
       )}
 
       {removed.length > 0 && (
-        <div style={{ marginTop: 12 }}>
-          <button onClick={() => setShowRemoved((v) => !v)} style={{ fontSize: 12 }}>
+        <div style={{ marginTop: 10 }}>
+          <span className="mini-btn" onClick={() => setShowRemoved((v) => !v)}>
             {showRemoved ? 'Hide' : 'Show'} removed discounts ({removed.length})
-          </button>
-          {showRemoved && (
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
-              <tbody>
-                {removed.map((d) => (
-                  <tr key={d.id} style={{ borderBottom: '1px solid #eee', fontSize: 12.5, color: '#888' }}>
-                    <td style={{ padding: 6 }}>{feeItemName(d.fee_item_id)}</td>
-                    <td style={{ padding: 6 }}>
-                      {d.type === 'percent' ? `${d.value}%` : `₦${d.value.toLocaleString()}`}
-                    </td>
-                    <td style={{ padding: 6 }}>{d.reason}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          </span>
+          {showRemoved &&
+            removed.map((d) => (
+              <div className="discount-card" key={d.id} style={{ background: 'var(--paper)', borderColor: 'var(--line)', opacity: 0.75 }}>
+                <div className="discount-icon">%</div>
+                <div className="discount-body">
+                  <div className="discount-top">
+                    <div className="discount-fee">{feeItemName(d.fee_item_id)}</div>
+                    <div className="discount-val" style={{ color: 'var(--slate-soft)' }}>
+                      {d.type === 'percent' ? `${d.value}% off` : `₦${d.value.toLocaleString()} off`}
+                    </div>
+                  </div>
+                  <div className="discount-reason">"{d.reason}"</div>
+                  <div className="discount-meta">Removed {d.removed_at ? new Date(d.removed_at).toLocaleDateString() : ''}</div>
+                </div>
+              </div>
+            ))}
         </div>
       )}
+
+      <div className={`overlay${panelOpen ? ' show' : ''}`} onClick={() => setPanelOpen(false)} />
+      <div className={`panel${panelOpen ? ' show' : ''}`}>
+        <div className="panel-head">
+          <div>
+            <h3>Add a discount or waiver</h3>
+            <p>A standing rule — applies to future charges for this fee item.</p>
+          </div>
+          <div className="panel-close" onClick={() => setPanelOpen(false)}>
+            ✕
+          </div>
+        </div>
+        <div className="panel-body">
+          <div className="field">
+            <label>Fee item</label>
+            <select value={feeItemId} onChange={(e) => setFeeItemId(e.target.value)}>
+              <option value="">Choose…</option>
+              {feeItems.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Discount type</label>
+              <select value={type} onChange={(e) => setType(e.target.value as DiscountType)}>
+                <option value="percent">Percentage off</option>
+                <option value="fixed">Fixed amount off</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Value</label>
+              <input
+                type="number"
+                placeholder={type === 'percent' ? 'e.g. 10' : 'e.g. 5000'}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="field">
+            <label>
+              Reason <span className="required-mark">*required</span>
+            </label>
+            <textarea
+              placeholder="e.g. Staff child — 10% discount per school policy."
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+            {error && (
+              <div className="field-error" style={{ display: 'block' }}>
+                {error}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="panel-foot">
+          <button className="btn-primary" style={{ width: '100%' }} onClick={handleAdd} disabled={saving}>
+            {saving ? 'Saving…' : 'Add discount'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

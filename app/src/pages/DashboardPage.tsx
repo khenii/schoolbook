@@ -39,7 +39,7 @@ export default function DashboardPage({ syncStatus }: { syncStatus: string }) {
   });
 
   return (
-    <AppShell title="Dashboard" syncStatus={syncStatus}>
+    <AppShell title="Dashboard" syncStatus={syncStatus} pageClass="page-dashboard">
       <div className="greeting">
         <div className="eyebrow">{today}</div>
         <h2>{stats.schoolName ? `Good day, ${stats.schoolName}` : 'Dashboard'}</h2>

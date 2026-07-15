@@ -6,7 +6,13 @@ interface ChargeRow {
   fee_item_id: string;
   session_id: string;
   term_id: string;
+  class_level_id: string;
   amount_expected: number;
+}
+
+interface ClassLevelRow {
+  id: string;
+  name: string;
 }
 
 interface PaymentRow {
@@ -53,6 +59,7 @@ export interface LedgerCharge extends ChargeRow {
   feeItemName: string;
   sessionName: string;
   termName: string;
+  classLevelName: string;
   paid: number;
   writtenOff: number;
   balance: number;
@@ -70,9 +77,10 @@ export interface LedgerCharge extends ChargeRow {
 // some reason, no term is flagged current yet (shouldn't happen post-migration).
 export function useStudentLedger(studentId: string) {
   const { data: charges } = useQuery<ChargeRow>(
-    'SELECT id, fee_item_id, session_id, term_id, amount_expected FROM charges WHERE student_id = ?',
+    'SELECT id, fee_item_id, session_id, term_id, class_level_id, amount_expected FROM charges WHERE student_id = ?',
     [studentId]
   );
+  const { data: classLevels } = useQuery<ClassLevelRow>('SELECT id, name FROM class_levels');
   const { data: payments } = useQuery<PaymentRow>(
     'SELECT id, charge_id, amount_paid, date_paid, method, receipt_number, household_transaction_id, void_of_payment_id, void_reason, created_at FROM payments WHERE student_id = ? ORDER BY date_paid DESC, created_at DESC',
     [studentId]
@@ -112,13 +120,14 @@ export function useStudentLedger(studentId: string) {
         feeItemName: feeItems.find((f) => f.id === c.fee_item_id)?.name ?? c.fee_item_id,
         sessionName: session?.name ?? '',
         termName: term?.name ?? '',
+        classLevelName: classLevels.find((l) => l.id === c.class_level_id)?.name ?? '',
         paid,
         writtenOff,
         balance: c.amount_expected - paid - writtenOff,
         sortKey: `${session?.created_at ?? ''}__${term?.created_at ?? ''}`
       };
     });
-  }, [charges, terms, sessions, feeItems, paidByCharge, writtenOffByCharge]);
+  }, [charges, terms, sessions, feeItems, classLevels, paidByCharge, writtenOffByCharge]);
 
   const sortedByOldest = useMemo(
     () => [...ledgerCharges].sort((a, b) => a.sortKey.localeCompare(b.sortKey)),
@@ -131,6 +140,13 @@ export function useStudentLedger(studentId: string) {
 
   const currentTermCharges = ledgerCharges.filter((c) => c.term_id === currentTermId);
   const currentTermBalance = currentTermCharges.reduce((sum, c) => sum + c.balance, 0);
+  const paidThisTerm = currentTermCharges.reduce((sum, c) => sum + c.paid, 0);
+  const currentSessionId = currentTermCharges[0]?.session_id ?? null;
+
+  const currentTermChargeIds = new Set(currentTermCharges.map((c) => c.id));
+  const paymentsThisTermCount = payments.filter(
+    (p) => p.amount_paid > 0 && currentTermChargeIds.has(p.charge_id)
+  ).length;
 
   const arrears = sortedByOldest.filter((c) => c.term_id !== currentTermId && c.balance > 0);
   const totalArrears = arrears.reduce((sum, c) => sum + c.balance, 0);
@@ -144,7 +160,11 @@ export function useStudentLedger(studentId: string) {
     payments,
     writeOffs,
     currentTermId,
+    currentSessionId,
+    currentTermCharges,
     currentTermBalance,
+    paidThisTerm,
+    paymentsThisTermCount,
     arrears,
     totalArrears,
     totalOutstanding

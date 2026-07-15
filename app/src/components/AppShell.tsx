@@ -58,11 +58,20 @@ function initialsOf(name: string) {
 
 export default function AppShell({
   title,
+  crumb,
   syncStatus,
+  pageClass,
   children
 }: {
-  title: string;
+  title?: string;
+  crumb?: { label: string; to: string; current: string };
   syncStatus?: string;
+  // Several mockups reuse a class name (e.g. .btn-primary, .col-status) with
+  // page-specific sizing/flex-ratios that legitimately differ from page to
+  // page. Those are scoped in index.css under `.page-<name> <selector>` —
+  // this prop is what applies that scope, so one page's table/button sizing
+  // can never leak into another's. See index.css's header comment.
+  pageClass?: string;
   children: ReactNode;
 }) {
   const location = useLocation();
@@ -88,7 +97,7 @@ export default function AppShell({
         : 'No active session';
 
   return (
-    <>
+    <div className={pageClass ? `app-shell ${pageClass}` : 'app-shell'}>
       <div className="sidebar">
         <div className="brand">
           <div className="brand-mark">S</div>
@@ -133,7 +142,13 @@ export default function AppShell({
 
       <div className="main">
         <div className="topbar">
-          <h1>{title}</h1>
+          {crumb ? (
+            <div className="crumb">
+              <Link to={crumb.to}>{crumb.label}</Link> <span>/</span> <span className="cur">{crumb.current}</span>
+            </div>
+          ) : (
+            <h1>{title}</h1>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {syncStatus && (
               <span style={{ fontSize: 11, color: 'var(--slate-soft)', fontFamily: "'IBM Plex Mono', monospace" }}>
@@ -149,6 +164,6 @@ export default function AppShell({
 
         <div className="content">{children}</div>
       </div>
-    </>
+    </div>
   );
 }

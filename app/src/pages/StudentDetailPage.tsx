@@ -1,16 +1,19 @@
-import { Fragment, useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { usePowerSync, useQuery } from '@powersync/react';
+import AppShell from '../components/AppShell';
 import { useAppContext } from '../lib/AppContext';
 import { useStudentLedger } from '../hooks/useStudentLedger';
 import HouseholdSection from '../components/students/HouseholdSection';
-import PaymentSection from '../components/students/PaymentSection';
-import ProfileSummary from '../components/students/ProfileSummary';
 import NotesSection from '../components/students/NotesSection';
 import PaymentHistorySection from '../components/students/PaymentHistorySection';
 import DiscountsSection from '../components/students/DiscountsSection';
-import ExitSection from '../components/students/ExitSection';
+import { ExitPanel, InactiveBanner } from '../components/students/ExitSection';
+import RecordPaymentPanel from '../components/students/RecordPaymentPanel';
+import WriteOffPanel from '../components/students/WriteOffPanel';
+import AcademicHistory from '../components/students/AcademicHistory';
+import type { WriteOffTarget } from '../components/students/WriteOffPanel';
 import { logAudit } from '../lib/auditLog';
 
 interface StudentRow {
@@ -42,6 +45,10 @@ interface ClassLevelRow {
   name: string;
 }
 
+function initials(first: string, last: string) {
+  return `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase() || '—';
+}
+
 export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const db = usePowerSync();
@@ -53,85 +60,40 @@ export default function StudentDetailPage() {
 
   const { data: arms } = useQuery<ClassArmRow>('SELECT id, class_level_id, name FROM class_arms');
   const { data: levels } = useQuery<ClassLevelRow>('SELECT id, name FROM class_levels');
-  const { charges } = useStudentLedger(studentId);
+  const {
+    charges,
+    payments,
+    writeOffs,
+    currentTermId,
+    currentSessionId,
+    currentTermCharges,
+    currentTermBalance,
+    paidThisTerm,
+    paymentsThisTermCount,
+    arrears,
+    totalArrears
+  } = useStudentLedger(studentId);
 
-  const [form, setForm] = useState<Partial<StudentRow>>({});
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  const [writeOffChargeId, setWriteOffChargeId] = useState<string | null>(null);
-  const [writeOffAmount, setWriteOffAmount] = useState('');
-  const [writeOffReason, setWriteOffReason] = useState('');
-  const [writeOffSaving, setWriteOffSaving] = useState(false);
-  const [writeOffError, setWriteOffError] = useState<string | null>(null);
-
-  function startWriteOff(chargeId: string, balance: number) {
-    setWriteOffChargeId(chargeId);
-    setWriteOffAmount(String(balance));
-    setWriteOffReason('');
-    setWriteOffError(null);
-  }
-
-  function cancelWriteOff() {
-    setWriteOffChargeId(null);
-    setWriteOffAmount('');
-    setWriteOffReason('');
-    setWriteOffError(null);
-  }
-
-  async function confirmWriteOff(chargeId: string, balance: number) {
-    const amount = Number(writeOffAmount);
-    if (!amount || amount <= 0) {
-      setWriteOffError('Enter an amount greater than zero.');
-      return;
-    }
-    if (amount > balance) {
-      setWriteOffError(`Exceeds this charge's outstanding balance (₦${balance.toLocaleString()}).`);
-      return;
-    }
-    if (!writeOffReason.trim()) {
-      setWriteOffError('A reason is required — this is a permanent record.');
-      return;
-    }
-    setWriteOffSaving(true);
-    try {
-      const writeOffId = crypto.randomUUID();
-      await db.writeTransaction(async (tx) => {
-        await tx.execute(
-          `INSERT INTO write_offs (id, school_id, charge_id, student_id, amount, reason, written_off_by, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [writeOffId, account.school_id, chargeId, studentId, amount, writeOffReason.trim(), account.id, new Date().toISOString()]
-        );
-        await logAudit(tx, {
-          schoolId: account.school_id,
-          actorId: account.id,
-          action: 'charge.written_off',
-          entityType: 'charge',
-          entityId: chargeId,
-          metadata: { studentId, amount, reason: writeOffReason.trim() }
-        });
-      });
-      cancelWriteOff();
-    } catch (err) {
-      setWriteOffError(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setWriteOffSaving(false);
-    }
-  }
+  const [editForm, setEditForm] = useState<Partial<StudentRow>>({});
+  const [editSaving, setEditSaving] = useState(false);
+  const [editPanelOpen, setEditPanelOpen] = useState(false);
+  const [paymentPanelOpen, setPaymentPanelOpen] = useState(false);
+  const [exitPanelOpen, setExitPanelOpen] = useState(false);
+  const [writeOffTarget, setWriteOffTarget] = useState<WriteOffTarget | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    if (student) setForm(student);
+    if (student) setEditForm(student);
   }, [student?.id]);
 
-  if (!student) {
-    return (
-      <div style={{ maxWidth: 640, margin: '2rem auto', padding: '0 1rem' }}>
-        <p>
-          <Link to="/students">← Back to students</Link>
-        </p>
-        <p>Loading, or this student doesn't exist.</p>
-      </div>
-    );
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  function notify(msg: string) {
+    setToast(msg);
   }
 
   const armLabel = (armId: string | null) => {
@@ -142,10 +104,10 @@ export default function StudentDetailPage() {
     return `${level?.name ?? ''} ${arm.name}`.trim();
   };
 
-  async function handleSave(e: FormEvent) {
+  async function handleEditSave(e: FormEvent) {
     e.preventDefault();
-    setSaving(true);
-    setSaved(false);
+    if (!student) return;
+    setEditSaving(true);
     await db.writeTransaction(async (tx) => {
       await tx.execute(
         `UPDATE students SET
@@ -153,15 +115,15 @@ export default function StudentDetailPage() {
            address = ?, gender = ?, date_of_birth = ?, status = ?
          WHERE id = ?`,
         [
-          form.first_name ?? student.first_name,
-          form.last_name ?? student.last_name,
-          form.other_names ?? null,
-          form.guardian_name ?? null,
-          form.guardian_phone ?? null,
-          form.address ?? null,
-          form.gender ?? null,
-          form.date_of_birth ?? null,
-          form.status ?? student.status,
+          editForm.first_name ?? student.first_name,
+          editForm.last_name ?? student.last_name,
+          editForm.other_names ?? null,
+          editForm.guardian_name ?? null,
+          editForm.guardian_phone ?? null,
+          editForm.address ?? null,
+          editForm.gender ?? null,
+          editForm.date_of_birth ?? null,
+          editForm.status ?? student.status,
           student.id
         ]
       );
@@ -171,159 +133,366 @@ export default function StudentDetailPage() {
         action: 'student.updated',
         entityType: 'student',
         entityId: student.id,
-        metadata: { name: `${form.last_name ?? student.last_name} ${form.first_name ?? student.first_name}` }
+        metadata: { name: `${editForm.last_name ?? student.last_name} ${editForm.first_name ?? student.first_name}` }
       });
     });
-    setSaving(false);
-    setSaved(true);
+    setEditSaving(false);
+    setEditPanelOpen(false);
+    notify('Student details updated');
   }
 
+  if (!student) {
+    return (
+      <AppShell title="Students" pageClass="page-students">
+        <p style={{ color: 'var(--slate-soft)' }}>Loading, or this student doesn't exist.</p>
+      </AppShell>
+    );
+  }
+
+  const isActive = student.status === 'new' || student.status === 'existing';
+
   return (
-    <div style={{ maxWidth: 640, margin: '2rem auto', padding: '0 1rem' }}>
-      <p>
-        <Link to="/students">← Back to students</Link>
-      </p>
-      <h1>
-        {student.last_name} {student.first_name}
-      </h1>
-      <p style={{ color: 'var(--color-slate)' }}>
-        {student.admission_number} · {armLabel(student.current_class_arm_id)} · {student.status}
-      </p>
+    <AppShell
+      crumb={{ label: 'Students', to: '/students', current: `${student.first_name} ${student.last_name}` }}
+      pageClass="page-profile"
+    >
+      {!isActive && <InactiveBanner student={student} />}
 
-      <ProfileSummary studentId={student.id} />
-      <ExitSection student={student} />
-      <NotesSection studentId={student.id} />
-
-      <details>
-        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Edit bio-data</summary>
-        <form onSubmit={handleSave} style={{ maxWidth: 'none', margin: '0.75rem 0 0' }}>
-          <input
-            placeholder="First name"
-            value={form.first_name ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
-          />
-          <input
-            placeholder="Last name"
-            value={form.last_name ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
-          />
-          <input
-            placeholder="Other names"
-            value={form.other_names ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, other_names: e.target.value }))}
-          />
-          <input
-            placeholder="Guardian name"
-            value={form.guardian_name ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, guardian_name: e.target.value }))}
-          />
-          <input
-            placeholder="Guardian phone"
-            value={form.guardian_phone ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, guardian_phone: e.target.value }))}
-          />
-          <input
-            placeholder="Address"
-            value={form.address ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-          />
-          <select
-            value={form.status ?? student.status}
-            onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-          >
-            <option value="new">New</option>
-            <option value="existing">Existing</option>
-          </select>
-          <button type="submit" disabled={saving}>
-            {saving ? 'Saving…' : 'Save changes'}
+      <div className="profile-head">
+        <div className="big-avatar">{initials(student.first_name, student.last_name)}</div>
+        <div className="profile-info">
+          <h2>
+            {student.first_name} {student.last_name}
+          </h2>
+          <div className="profile-meta">
+            {student.status === 'new' && <span className="status-tag new">NEW</span>}
+            {student.status === 'existing' && <span className="status-tag existing">EXISTING</span>}
+            {student.status === 'withdrawn' && <span className="status-tag withdrawn">WITHDRAWN</span>}
+            {student.status === 'graduated' && <span className="status-tag graduated">GRADUATED</span>}
+            <span className="class-tag">{armLabel(student.current_class_arm_id)}</span>
+            <span>{student.admission_number}</span>
+            {student.guardian_phone && (
+              <>
+                <span>·</span>
+                <span>Guardian: {student.guardian_phone}</span>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="profile-actions">
+          {isActive && (
+            <button
+              className="btn-ghost"
+              style={{ color: 'var(--rust)', borderColor: 'var(--rust-bg)' }}
+              onClick={() => setExitPanelOpen(true)}
+            >
+              Withdraw student
+            </button>
+          )}
+          <button className="btn-ghost" onClick={() => setEditPanelOpen(true)}>
+            Edit student
           </button>
-          {saved && <span style={{ color: 'green', marginLeft: 8 }}>Saved.</span>}
-        </form>
-      </details>
+          <button className="btn-primary" onClick={() => setPaymentPanelOpen(true)}>
+            Record payment
+          </button>
+        </div>
+      </div>
 
       <HouseholdSection student={student} />
+      <NotesSection studentId={student.id} />
+
+      <div className="stat-row">
+        <div className="stat-card warn">
+          <div className="label">Current term balance</div>
+          <div className="value">₦{currentTermBalance.toLocaleString()}</div>
+          <div className="sub">{armLabel(student.current_class_arm_id)}</div>
+        </div>
+        <div className="stat-card warn">
+          <div className="label">Total arrears (all sessions)</div>
+          <div className="value">₦{totalArrears.toLocaleString()}</div>
+          <div className="sub">{arrears.length === 0 ? 'None outstanding' : 'Carried from earlier terms — see below'}</div>
+        </div>
+        <div className="stat-card ok">
+          <div className="label">Paid this term so far</div>
+          <div className="value">₦{paidThisTerm.toLocaleString()}</div>
+          <div className="sub">
+            {paymentsThisTermCount} payment{paymentsThisTermCount === 1 ? '' : 's'} recorded
+          </div>
+        </div>
+      </div>
+
+      {totalArrears > 0 && (
+        <div className="section">
+          <div className="section-title">
+            <div>
+              <h3>Outstanding arrears from previous terms</h3>
+              <p>These balances were never cleared and carried forward — they don't disappear when a student is promoted.</p>
+            </div>
+          </div>
+          <div className="arrears-box">
+            <div className="arrears-banner">⚠ This student has unpaid balances from a previous session</div>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <div className="t-row head">
+                <div className="col-term">Session / Term</div>
+                <div className="col-fee">Fee item</div>
+                <div className="col-amt">Charged</div>
+                <div className="col-amt">Paid</div>
+                <div className="col-status">Balance</div>
+              </div>
+              {arrears.map((c) => (
+                <div className="t-row" key={c.id}>
+                  <div className="col-term">
+                    <div className="t">{c.classLevelName}</div>
+                    <div className="s">
+                      {c.sessionName} · {c.termName}
+                    </div>
+                  </div>
+                  <div className="col-fee">{c.feeItemName}</div>
+                  <div className="col-amt">₦{c.amount_expected.toLocaleString()}</div>
+                  <div className="col-amt">₦{c.paid.toLocaleString()}</div>
+                  <div className="col-status">
+                    <span className="bal-tag owed">₦{c.balance.toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <DiscountsSection studentId={student.id} />
 
-      <h2 style={{ marginTop: '2rem' }}>All charges</h2>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd' }}>
-            <th style={{ padding: 8 }}>Fee item</th>
-            <th style={{ padding: 8 }}>Session</th>
-            <th style={{ padding: 8 }}>Term</th>
-            <th style={{ padding: 8 }}>Expected</th>
-            <th style={{ padding: 8 }}>Paid</th>
-            <th style={{ padding: 8 }}>Written off</th>
-            <th style={{ padding: 8 }}>Balance</th>
-            <th style={{ padding: 8 }} />
-          </tr>
-        </thead>
-        <tbody>
-          {charges.map((c) => (
-            <Fragment key={c.id}>
-              <tr style={{ borderBottom: writeOffChargeId === c.id ? 'none' : '1px solid #eee' }}>
-                <td style={{ padding: 8 }} title={`fee_item_id: ${c.fee_item_id}`}>
-                  {c.feeItemName}
-                </td>
-                <td style={{ padding: 8 }}>{c.sessionName}</td>
-                <td style={{ padding: 8 }}>{c.termName}</td>
-                <td style={{ padding: 8 }}>₦{c.amount_expected.toLocaleString()}</td>
-                <td style={{ padding: 8 }}>₦{c.paid.toLocaleString()}</td>
-                <td style={{ padding: 8, color: c.writtenOff > 0 ? '#b8860b' : 'inherit' }}>
-                  {c.writtenOff > 0 ? `₦${c.writtenOff.toLocaleString()}` : '—'}
-                </td>
-                <td style={{ padding: 8, color: c.balance > 0 ? 'crimson' : 'inherit' }}>
-                  ₦{c.balance.toLocaleString()}
-                </td>
-                <td style={{ padding: 8 }}>
-                  {c.balance > 0 && writeOffChargeId !== c.id && (
-                    <button onClick={() => startWriteOff(c.id, c.balance)} style={{ fontSize: 11 }}>
-                      Write off
-                    </button>
+      <div className="section">
+        <div className="section-title">
+          <div>
+            <h3>This term's charges</h3>
+            <p>{armLabel(student.current_class_arm_id)}</p>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <div className="t-row head">
+            <div className="col-fee">Fee item</div>
+            <div className="col-amt">Charged</div>
+            <div className="col-amt">Paid</div>
+            <div className="col-status">Balance</div>
+            <div className="col-action-btn" style={{ flex: 1 }} />
+          </div>
+          {currentTermCharges.length === 0 ? (
+            <div className="empty-note">No charges for the current term yet.</div>
+          ) : (
+            currentTermCharges.map((c) => (
+              <div className="t-row" key={c.id}>
+                <div className="col-fee">{c.feeItemName}</div>
+                <div className="col-amt">₦{c.amount_expected.toLocaleString()}</div>
+                <div className="col-amt">₦{c.paid.toLocaleString()}</div>
+                <div className="col-status">
+                  {c.balance > 0 ? (
+                    <span className="bal-tag owed">₦{c.balance.toLocaleString()}</span>
+                  ) : c.writtenOff > 0 ? (
+                    <span className="bal-tag writtenoff">WRITTEN OFF</span>
+                  ) : (
+                    <span className="bal-tag clear">Cleared</span>
                   )}
-                </td>
-              </tr>
-              {writeOffChargeId === c.id && (
-                <tr style={{ borderBottom: '1px solid #eee' }}>
-                  <td colSpan={8} style={{ padding: '0 8px 10px' }}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <input
-                        type="number"
-                        value={writeOffAmount}
-                        onChange={(e) => setWriteOffAmount(e.target.value)}
-                        style={{ width: 110 }}
-                      />
-                      <input
-                        placeholder="Reason (required)"
-                        value={writeOffReason}
-                        onChange={(e) => setWriteOffReason(e.target.value)}
-                        style={{ flex: 1, minWidth: 200 }}
-                      />
-                      <button onClick={() => confirmWriteOff(c.id, c.balance)} disabled={writeOffSaving}>
-                        {writeOffSaving ? 'Saving…' : 'Confirm write-off'}
-                      </button>
-                      <button type="button" onClick={cancelWriteOff}>
-                        Cancel
-                      </button>
-                    </div>
-                    {writeOffError && <p style={{ color: 'crimson', fontSize: 12, margin: '4px 0 0' }}>{writeOffError}</p>}
-                  </td>
-                </tr>
-              )}
-            </Fragment>
-          ))}
-          {charges.length === 0 && (
-            <tr>
-              <td colSpan={8} style={{ padding: 8, color: '#888' }}>
-                No charges.
-              </td>
-            </tr>
+                </div>
+                <div className="col-action-btn" style={{ flex: 1 }}>
+                  {c.balance > 0 && (
+                    <>
+                      <span className="mini-btn" onClick={() => setPaymentPanelOpen(true)}>
+                        Pay →
+                      </span>
+                      <span
+                        className="writeoff-btn"
+                        onClick={() => setWriteOffTarget({ chargeId: c.id, feeItemName: c.feeItemName, balance: c.balance })}
+                      >
+                        Write off
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))
           )}
-        </tbody>
-      </table>
+        </div>
+      </div>
 
-      <PaymentHistorySection studentId={student.id} />
-      <PaymentSection studentId={student.id} />
-    </div>
+      {writeOffs.length > 0 && (
+        <div className="section">
+          <div className="section-title">
+            <div>
+              <h3>Write-offs on this record</h3>
+              <p>A permanent record of any balance forgiven — never editable or deletable once recorded.</p>
+            </div>
+          </div>
+          <div className="table-wrap" style={{ borderColor: 'var(--gold-soft)' }}>
+            {writeOffs.map((w) => {
+              const c = charges.find((x) => x.id === w.charge_id);
+              return (
+                <div className="wo-row" key={w.id}>
+                  <div className="wo-icon">📝</div>
+                  <div className="wo-body">
+                    <div className="wo-top">
+                      <div className="wo-fee">{c?.feeItemName ?? 'Charge'}</div>
+                      <div className="wo-amt">₦{w.amount.toLocaleString()} written off</div>
+                    </div>
+                    <div className="wo-reason">"{w.reason}"</div>
+                    <div className="wo-meta">{new Date(w.created_at).toLocaleDateString()}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="section">
+        <div className="section-title">
+          <div>
+            <h3>Recent payments</h3>
+            <p>The last few payments recorded, most recent first.</p>
+          </div>
+        </div>
+        <PaymentHistorySection studentId={student.id} />
+      </div>
+
+      <div className="section">
+        <div className="section-title">
+          <div>
+            <h3>Full academic history</h3>
+            <p>Every session this student has been enrolled — collapsed by default so it stays readable at scale.</p>
+          </div>
+        </div>
+        <AcademicHistory
+          charges={charges}
+          payments={payments}
+          currentTermId={currentTermId}
+          currentSessionId={currentSessionId}
+        />
+      </div>
+
+      <RecordPaymentPanel
+        open={paymentPanelOpen}
+        onClose={() => setPaymentPanelOpen(false)}
+        studentId={student.id}
+        studentName={`${student.first_name} ${student.last_name}`}
+        classLabel={armLabel(student.current_class_arm_id)}
+        onSaved={(msg) => {
+          setPaymentPanelOpen(false);
+          notify(msg);
+        }}
+      />
+
+      <WriteOffPanel
+        target={writeOffTarget}
+        onClose={() => setWriteOffTarget(null)}
+        studentId={student.id}
+        onSaved={(msg) => {
+          setWriteOffTarget(null);
+          notify(msg);
+        }}
+      />
+
+      <ExitPanel
+        open={exitPanelOpen}
+        onClose={() => setExitPanelOpen(false)}
+        student={student}
+        onSaved={(msg) => {
+          setExitPanelOpen(false);
+          notify(msg);
+        }}
+      />
+
+      {/* EDIT STUDENT PANEL — no dedicated mockup; styled to match the same
+          slide-over family as the others above. */}
+      <div className={`overlay${editPanelOpen ? ' show' : ''}`} onClick={() => setEditPanelOpen(false)} />
+      <div className={`panel${editPanelOpen ? ' show' : ''}`}>
+        <div className="panel-head">
+          <div>
+            <h3>Edit student</h3>
+            <p>Bio-data and guardian details.</p>
+          </div>
+          <div className="panel-close" onClick={() => setEditPanelOpen(false)}>
+            ✕
+          </div>
+        </div>
+        <form onSubmit={handleEditSave}>
+          <div className="panel-body">
+            <div className="field-row">
+              <div className="field">
+                <label>First name</label>
+                <input
+                  value={editForm.first_name ?? ''}
+                  onChange={(e) => setEditForm((f) => ({ ...f, first_name: e.target.value }))}
+                />
+              </div>
+              <div className="field">
+                <label>Last name</label>
+                <input
+                  value={editForm.last_name ?? ''}
+                  onChange={(e) => setEditForm((f) => ({ ...f, last_name: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="field">
+              <label>Other names</label>
+              <input
+                value={editForm.other_names ?? ''}
+                onChange={(e) => setEditForm((f) => ({ ...f, other_names: e.target.value }))}
+              />
+            </div>
+            <div className="field">
+              <label>Status</label>
+              <select
+                value={editForm.status ?? student.status}
+                onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+              >
+                <option value="new">New</option>
+                <option value="existing">Existing</option>
+                <option value="withdrawn">Withdrawn</option>
+                <option value="graduated">Graduated</option>
+              </select>
+            </div>
+            <div className="field-row">
+              <div className="field">
+                <label>Date of birth</label>
+                <input
+                  type="date"
+                  value={editForm.date_of_birth ?? ''}
+                  onChange={(e) => setEditForm((f) => ({ ...f, date_of_birth: e.target.value }))}
+                />
+              </div>
+              <div className="field">
+                <label>Gender</label>
+                <input value={editForm.gender ?? ''} onChange={(e) => setEditForm((f) => ({ ...f, gender: e.target.value }))} />
+              </div>
+            </div>
+            <div className="field">
+              <label>Guardian name</label>
+              <input
+                value={editForm.guardian_name ?? ''}
+                onChange={(e) => setEditForm((f) => ({ ...f, guardian_name: e.target.value }))}
+              />
+            </div>
+            <div className="field">
+              <label>Guardian phone</label>
+              <input
+                value={editForm.guardian_phone ?? ''}
+                onChange={(e) => setEditForm((f) => ({ ...f, guardian_phone: e.target.value }))}
+              />
+            </div>
+            <div className="field">
+              <label>Address</label>
+              <input value={editForm.address ?? ''} onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))} />
+            </div>
+          </div>
+          <div className="panel-foot">
+            <button type="submit" className="btn-primary" style={{ width: '100%' }} disabled={editSaving}>
+              {editSaving ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className={`toast${toast ? ' show' : ''}`}>{toast}</div>
+    </AppShell>
   );
 }
