@@ -21,6 +21,7 @@ export interface StudentRow {
 interface ClassArmRow {
   id: string;
   class_level_id: string;
+  session_id: string;
   name: string;
 }
 
@@ -47,6 +48,7 @@ interface TermRow {
 interface ChargeRow {
   id: string;
   student_id: string;
+  fee_item_id: string;
   term_id: string;
   session_id: string;
   class_level_id: string;
@@ -77,14 +79,14 @@ export function useSchoolLedger() {
   const { data: students } = useQuery<StudentRow>(
     'SELECT id, first_name, last_name, status, current_class_arm_id, created_at FROM students'
   );
-  const { data: arms } = useQuery<ClassArmRow>('SELECT id, class_level_id, name FROM class_arms');
+  const { data: arms } = useQuery<ClassArmRow>('SELECT id, class_level_id, session_id, name FROM class_arms');
   const { data: levels } = useQuery<ClassLevelRow>(
     'SELECT id, name, sort_order FROM class_levels ORDER BY sort_order ASC'
   );
   const { data: sessions } = useQuery<SessionRow>('SELECT id, name, created_at FROM sessions');
   const { data: terms } = useQuery<TermRow>('SELECT id, session_id, name, is_current, created_at FROM terms');
   const { data: charges } = useQuery<ChargeRow>(
-    'SELECT id, student_id, term_id, session_id, class_level_id, amount_expected FROM charges'
+    'SELECT id, student_id, fee_item_id, term_id, session_id, class_level_id, amount_expected FROM charges'
   );
   const { data: payments } = useQuery<PaymentRow>(
     'SELECT id, charge_id, student_id, amount_paid, date_paid, created_at FROM payments ORDER BY created_at DESC'

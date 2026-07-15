@@ -66,6 +66,7 @@ export default function DashboardPage({ syncStatus }: { syncStatus: string }) {
         <div style={{ fontSize: 13, color: '#64748b' }}>{session.user.email}</div>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 13 }}>
           <Link to="/students">Students</Link>
+          <Link to="/class-register">Class Register</Link>
           <Link to="/reports">Reports</Link>
           <Link to="/settings">Settings</Link>
           <span style={{ color: '#64748b' }}>Sync: {syncStatus}</span>
