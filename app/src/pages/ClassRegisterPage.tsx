@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePowerSync, useQuery } from '@powersync/react';
+import AppShell from '../components/AppShell';
 import { useAppContext } from '../lib/AppContext';
 import { useSchoolLedger } from '../hooks/useSchoolLedger';
 import { exportToCSV } from '../lib/csv';
@@ -13,22 +14,23 @@ interface FeeItemRow {
 
 type Method = 'cash' | 'bank-transfer' | 'pos' | 'other';
 
-const cardStyle: React.CSSProperties = {
-  background: 'white',
-  border: '1px solid #e2e8f0',
-  borderRadius: 10,
-  padding: '12px 16px',
-  flex: 1
-};
+const PAGE_SIZE = 15;
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 10.5,
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  color: '#64748b',
-  marginBottom: 6
-};
+function buildPageList(totalPages: number, current: number): (number | '…')[] {
+  const pages: (number | '…')[] = [];
+  for (let p = 1; p <= totalPages; p++) {
+    if (p === 1 || p === totalPages || Math.abs(p - current) <= 2) pages.push(p);
+    else if (pages[pages.length - 1] !== '…') pages.push('…');
+  }
+  return pages;
+}
 
+// "Work down the class list like a paper register" from 10-class-register.html.
+// The mockup's entry row is Amount + Add only; the real implementation also
+// needs a receipt-number field (every other payment-entry surface in the app
+// has one) and a shared method/date pair for the whole session — added as
+// two extra .selector-group columns rather than per-row, since in practice a
+// teacher recording a register works through one method/date at a time.
 export default function ClassRegisterPage() {
   const db = usePowerSync();
   const { account } = useAppContext();
@@ -43,9 +45,22 @@ export default function ClassRegisterPage() {
   const [rowInputs, setRowInputs] = useState<Record<string, { amount: string; receipt: string }>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const levelId = selectedLevelId || levels[0]?.id || '';
   const feeItemId = selectedFeeItemId || feeItems[0]?.id || '';
+
+  useEffect(() => {
+    if (toast === null) return;
+    const t = setTimeout(() => setToast(null), 1800);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [levelId, selectedArmId, feeItemId]);
 
   const armsForLevel = useMemo(
     () => arms.filter((a) => a.class_level_id === levelId && (!currentTerm || a.session_id === currentTerm.session_id)),
@@ -65,10 +80,6 @@ export default function ClassRegisterPage() {
       const charged = matches.reduce((sum, c) => sum + c.amount_expected, 0);
       const paid = matches.reduce((sum, c) => sum + c.paid, 0);
       const balance = charged - paid;
-      // If a student somehow has more than one charge for this fee item in
-      // this term (shouldn't happen, but the duplicate-fee-item bug showed
-      // it's possible), payments still need one real charge_id to attach
-      // to — use the first as the entry target.
       const chargeId = matches[0]?.id ?? null;
       return {
         studentId: s.id,
@@ -84,9 +95,14 @@ export default function ClassRegisterPage() {
   }, [levelId, currentTerm, selectedArmId, armsForLevel, enrolledStudents, chargeBalances, feeItemId, classLabel]);
 
   const chargedRows = roster.filter((r) => r.hasCharge);
+  const totalCharged = chargedRows.reduce((sum, r) => sum + r.charged, 0);
   const totalCollected = chargedRows.reduce((sum, r) => sum + r.paid, 0);
   const totalOutstanding = chargedRows.reduce((sum, r) => (r.balance > 0 ? sum + r.balance : sum), 0);
   const fullyPaidCount = chargedRows.filter((r) => r.balance <= 0).length;
+
+  const totalPages = Math.max(1, Math.ceil(roster.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = roster.slice((currentPage - 1) * PAGE_SIZE, (currentPage - 1) * PAGE_SIZE + PAGE_SIZE);
 
   function handleExport() {
     const levelName = levels.find((l) => l.id === levelId)?.name ?? 'class';
@@ -99,7 +115,10 @@ export default function ClassRegisterPage() {
   }
 
   function setRowInput(studentId: string, field: 'amount' | 'receipt', value: string) {
-    setRowInputs((prev) => ({ ...prev, [studentId]: { ...prev[studentId], amount: prev[studentId]?.amount ?? '', receipt: prev[studentId]?.receipt ?? '', [field]: value } }));
+    setRowInputs((prev) => ({
+      ...prev,
+      [studentId]: { amount: prev[studentId]?.amount ?? '', receipt: prev[studentId]?.receipt ?? '', [field]: value }
+    }));
   }
 
   function fillFull(studentId: string, balance: number) {
@@ -152,6 +171,9 @@ export default function ClassRegisterPage() {
         });
       });
       setRowInputs((prev) => ({ ...prev, [studentId]: { amount: '', receipt: '' } }));
+      setFlashId(studentId);
+      setTimeout(() => setFlashId(null), 900);
+      setToast(`₦${amount.toLocaleString()} recorded`);
     } catch (err) {
       setRowError((prev) => ({
         ...prev,
@@ -164,44 +186,28 @@ export default function ClassRegisterPage() {
 
   if (!currentTerm) {
     return (
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.5rem 1rem' }}>
-        <p>
-          <Link to="/">← Back to dashboard</Link>
-        </p>
-        <h1>Class Register</h1>
-        <p style={{ color: '#64748b' }}>
+      <AppShell title="Class Register" pageClass="page-register">
+        <div className="empty-note">
           No current term is set yet. <Link to="/settings">Go to Settings → Sessions</Link> to add one.
-        </p>
-      </div>
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.5rem 1rem 4rem' }}>
-      <p>
-        <Link to="/">← Back to dashboard</Link>
-      </p>
-      <h1 style={{ marginBottom: 2 }}>Class Register</h1>
-      <p style={{ color: '#64748b', margin: 0 }}>
-        Pick a class and a fee item, then work down the list recording payments — like a paper register, but every
-        balance updates as you go. Current term: {currentTerm.name}.
-      </p>
+    <AppShell title="Class Register" pageClass="page-register">
+      <div className="page-head">
+        <div className="eyebrow">Records</div>
+        <h2>Treat payments class by class</h2>
+        <p>
+          Pick a class and a fee item, then work down the list recording payments — like a paper register, but it
+          updates every student's balance as you go.
+        </p>
+      </div>
 
-      <div
-        style={{
-          display: 'flex',
-          gap: 14,
-          flexWrap: 'wrap',
-          alignItems: 'flex-end',
-          margin: '1.25rem 0',
-          background: 'white',
-          border: '1px solid #e2e8f0',
-          borderRadius: 10,
-          padding: '14px 16px'
-        }}
-      >
-        <div>
-          <div style={labelStyle}>Class level</div>
+      <div className="selector-bar">
+        <div className="selector-group">
+          <label>Class level</label>
           <select
             value={levelId}
             onChange={(e) => {
@@ -216,8 +222,8 @@ export default function ClassRegisterPage() {
             ))}
           </select>
         </div>
-        <div>
-          <div style={labelStyle}>Arm</div>
+        <div className="selector-group">
+          <label>Arm</label>
           <select value={selectedArmId} onChange={(e) => setSelectedArmId(e.target.value)}>
             <option value="all">All arms</option>
             {armsForLevel.map((a) => (
@@ -227,8 +233,9 @@ export default function ClassRegisterPage() {
             ))}
           </select>
         </div>
-        <div>
-          <div style={labelStyle}>Fee item</div>
+        <div className="selector-divider" />
+        <div className="selector-group">
+          <label>Fee item</label>
           <select value={feeItemId} onChange={(e) => setSelectedFeeItemId(e.target.value)}>
             {feeItems.map((f) => (
               <option key={f.id} value={f.id}>
@@ -237,9 +244,9 @@ export default function ClassRegisterPage() {
             ))}
           </select>
         </div>
-        <div style={{ width: 1, height: 36, background: '#e2e8f0' }} />
-        <div>
-          <div style={labelStyle}>Method</div>
+        <div className="selector-divider" />
+        <div className="selector-group">
+          <label>Method</label>
           <select value={method} onChange={(e) => setMethod(e.target.value as Method)}>
             <option value="cash">Cash</option>
             <option value="bank-transfer">Bank transfer</option>
@@ -247,144 +254,169 @@ export default function ClassRegisterPage() {
             <option value="other">Other</option>
           </select>
         </div>
-        <div>
-          <div style={labelStyle}>Date paid</div>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <div className="selector-group">
+          <label>Date paid</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            style={{ padding: '8px 11px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12.5, background: 'var(--paper)', color: 'var(--ink)' }}
+          />
+        </div>
+        <div style={{ marginLeft: 'auto', alignSelf: 'flex-end' }}>
+          <button className="btn-ghost" onClick={handleExport} disabled={roster.length === 0}>
+            Export CSV
+          </button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-        <button onClick={handleExport} disabled={roster.length === 0}>
-          Export CSV
-        </button>
-      </div>
-
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-        <div style={cardStyle}>
-          <div style={labelStyle}>Students</div>
-          <div style={{ fontSize: 18, fontWeight: 600 }}>{roster.length}</div>
+      <div className="summary-strip">
+        <div className="sstat">
+          <div className="label">Students</div>
+          <div className="value">{roster.length}</div>
         </div>
-        <div style={cardStyle}>
-          <div style={labelStyle}>Fully paid</div>
-          <div style={{ fontSize: 18, fontWeight: 600, color: '#3A7D5C' }}>
+        <div className="sstat success">
+          <div className="label">Fully paid</div>
+          <div className="value">
             {fullyPaidCount} / {chargedRows.length}
           </div>
         </div>
-        <div style={cardStyle}>
-          <div style={labelStyle}>Total collected</div>
-          <div style={{ fontSize: 18, fontWeight: 600 }}>₦{totalCollected.toLocaleString()}</div>
+        <div className="sstat">
+          <div className="label">Total collected</div>
+          <div className="value">₦{totalCollected.toLocaleString()}</div>
         </div>
-        <div style={cardStyle}>
-          <div style={labelStyle}>Total outstanding</div>
-          <div style={{ fontSize: 18, fontWeight: 600, color: '#B84C3E' }}>₦{totalOutstanding.toLocaleString()}</div>
+        <div className="sstat rust">
+          <div className="label">Total outstanding</div>
+          <div className="value">₦{totalOutstanding.toLocaleString()}</div>
         </div>
       </div>
 
-      <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-        <div
-          style={{
-            display: 'flex',
-            padding: '9px 16px',
-            background: '#f8fafc',
-            fontSize: 10.5,
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-            color: '#64748b',
-            fontWeight: 600,
-            gap: 10
-          }}
-        >
-          <div style={{ flex: 1.6 }}>Student</div>
-          <div style={{ flex: 0.9, textAlign: 'right' }}>Charged</div>
-          <div style={{ flex: 0.9, textAlign: 'right' }}>Paid</div>
-          <div style={{ flex: 0.9, textAlign: 'right' }}>Balance</div>
-          <div style={{ flex: 2, textAlign: 'right' }}>Record a payment</div>
+      <div className="register-wrap">
+        <div className="r-row head">
+          <div className="col-num">#</div>
+          <div className="col-student">Student</div>
+          <div className="col-charged">Charged</div>
+          <div className="col-paid">Paid</div>
+          <div className="col-balance">Balance</div>
+          <div className="col-entry">Record a payment</div>
         </div>
 
-        {roster.length === 0 && (
-          <div style={{ padding: 32, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
-            No students in this class yet.
-          </div>
-        )}
-
-        {roster.map((r) => (
-          <div
-            key={r.studentId}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '10px 16px',
-              borderBottom: '1px solid #eee',
-              fontSize: 12.5,
-              background: r.hasCharge && r.balance <= 0 ? '#FCFEFC' : undefined
-            }}
-          >
-            <div style={{ flex: 1.6 }}>
-              <div style={{ fontWeight: 600 }}>
-                <Link to={`/students/${r.studentId}`} style={{ color: 'inherit' }}>
-                  {r.name}
-                </Link>
-              </div>
-              <div style={{ fontSize: 11, color: '#64748b' }}>{r.classLabel}</div>
-            </div>
-            {!r.hasCharge ? (
-              <div style={{ flex: 3.8, textAlign: 'right', color: '#94a3b8', fontSize: 12 }}>
-                No charge for this fee item this term
-              </div>
-            ) : (
-              <>
-                <div style={{ flex: 0.9, textAlign: 'right', color: '#64748b' }}>₦{r.charged.toLocaleString()}</div>
-                <div style={{ flex: 0.9, textAlign: 'right', fontWeight: 600 }}>₦{r.paid.toLocaleString()}</div>
-                <div style={{ flex: 0.9, textAlign: 'right' }}>
-                  {r.balance > 0 ? (
-                    <span style={{ color: '#B84C3E', fontWeight: 700, fontSize: 11.5 }}>
-                      ₦{r.balance.toLocaleString()}
-                    </span>
-                  ) : (
-                    <span style={{ color: '#3A7D5C', fontWeight: 700, fontSize: 11.5 }}>Cleared</span>
-                  )}
+        {roster.length === 0 ? (
+          <div className="empty-note">No students in this class yet.</div>
+        ) : (
+          <>
+            {pageRows.map((r, i) => (
+              <div
+                key={r.studentId}
+                className={`r-row${r.hasCharge && r.balance <= 0 ? ' fully-paid' : ''}${flashId === r.studentId ? ' paid-flash' : ''}`}
+              >
+                <div className="col-num">{(currentPage - 1) * PAGE_SIZE + i + 1}</div>
+                <div className="col-student">
+                  <div className="n">
+                    <Link to={`/students/${r.studentId}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                      {r.name}
+                    </Link>
+                  </div>
+                  <div className="c">{r.classLabel}</div>
                 </div>
-                <div style={{ flex: 2, textAlign: 'right' }}>
-                  {r.balance > 0 ? (
-                    <div>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button onClick={() => fillFull(r.studentId, r.balance)} style={{ fontSize: 11 }}>
-                          Full
-                        </button>
-                        <input
-                          type="number"
-                          placeholder="Amount"
-                          value={rowInputs[r.studentId]?.amount ?? ''}
-                          onChange={(e) => setRowInput(r.studentId, 'amount', e.target.value)}
-                          style={{ width: 90 }}
-                        />
-                        <input
-                          placeholder="Receipt #"
-                          value={rowInputs[r.studentId]?.receipt ?? ''}
-                          onChange={(e) => setRowInput(r.studentId, 'receipt', e.target.value)}
-                          style={{ width: 90 }}
-                        />
-                        <button
-                          onClick={() => recordPayment(r.studentId, r.chargeId, r.balance)}
-                          disabled={saving === r.studentId}
-                        >
-                          {saving === r.studentId ? '…' : 'Add'}
-                        </button>
-                      </div>
-                      {rowError[r.studentId] && (
-                        <div style={{ color: 'crimson', fontSize: 11, marginTop: 4 }}>{rowError[r.studentId]}</div>
+                {!r.hasCharge ? (
+                  <div style={{ flex: 3.2, textAlign: 'right', color: 'var(--slate-soft)', fontSize: 12 }}>
+                    No charge for this fee item this term
+                  </div>
+                ) : (
+                  <>
+                    <div className="col-charged">₦{r.charged.toLocaleString()}</div>
+                    <div className="col-paid">₦{r.paid.toLocaleString()}</div>
+                    <div className="col-balance">
+                      {r.balance > 0 ? (
+                        <span className="bal-tag owed">₦{r.balance.toLocaleString()}</span>
+                      ) : (
+                        <span className="bal-tag clear">Cleared</span>
                       )}
                     </div>
-                  ) : (
-                    <span style={{ color: '#3A7D5C', fontSize: 11.5, fontWeight: 600 }}>✓ No balance</span>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        ))}
+                    <div className="col-entry">
+                      {r.balance > 0 ? (
+                        <div>
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <button className="fill-btn" onClick={() => fillFull(r.studentId, r.balance)}>
+                              Full
+                            </button>
+                            <input
+                              type="number"
+                              placeholder="Amount"
+                              value={rowInputs[r.studentId]?.amount ?? ''}
+                              onChange={(e) => setRowInput(r.studentId, 'amount', e.target.value)}
+                              style={{ width: 88 }}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Receipt #"
+                              value={rowInputs[r.studentId]?.receipt ?? ''}
+                              onChange={(e) => setRowInput(r.studentId, 'receipt', e.target.value)}
+                              style={{ width: 80 }}
+                            />
+                            <button
+                              className="add-btn"
+                              onClick={() => recordPayment(r.studentId, r.chargeId, r.balance)}
+                              disabled={saving === r.studentId}
+                            >
+                              {saving === r.studentId ? '…' : 'Add'}
+                            </button>
+                          </div>
+                          {rowError[r.studentId] && (
+                            <div style={{ color: 'var(--rust)', fontSize: 11, marginTop: 4, textAlign: 'right' }}>
+                              {rowError[r.studentId]}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--success)', fontSize: 11.5, fontWeight: 600 }}>✓ No balance</span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+
+            <div className="totals-row">
+              <div className="col-num" />
+              <div className="col-student">Totals for this selection</div>
+              <div className="col-charged">₦{totalCharged.toLocaleString()}</div>
+              <div className="col-paid">₦{totalCollected.toLocaleString()}</div>
+              <div className="col-balance">₦{totalOutstanding.toLocaleString()}</div>
+              <div className="col-entry" />
+            </div>
+          </>
+        )}
       </div>
-    </div>
+
+      {totalPages > 1 && (
+        <div className="pagination-bar">
+          <button className="page-btn" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>
+            ← Prev
+          </button>
+          {buildPageList(totalPages, currentPage).map((p, idx) =>
+            p === '…' ? (
+              <span className="page-ellipsis" key={`e-${idx}`}>
+                …
+              </span>
+            ) : (
+              <button
+                key={p}
+                className={`page-btn${p === currentPage ? ' active' : ''}`}
+                onClick={() => setPage(p)}
+              >
+                {p}
+              </button>
+            )
+          )}
+          <button className="page-btn" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>
+            Next →
+          </button>
+        </div>
+      )}
+
+      <div className={`toast${toast ? ' show' : ''}`}>{toast}</div>
+    </AppShell>
   );
 }
