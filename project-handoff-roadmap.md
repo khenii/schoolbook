@@ -73,18 +73,19 @@ enforced at the database layer via row-level security, not just app code),
 
 ## 4. Build roadmap
 
-### Phase 0 — Foundation (nothing else should start before this)
-- [ ] Stand up Supabase project (Postgres + Auth) as the backend of record
-- [ ] Implement School/Account auth with Postgres RLS enforcing tenant
+### Phase 0 — Foundation (nothing else should start before this) — ✅ complete 2026-07-14
+- [x] Stand up Supabase project (Postgres + Auth) as the backend of record
+- [x] Implement School/Account auth with Postgres RLS enforcing tenant
       isolation (`schoolId` scoping enforced at the database layer)
-- [ ] Stand up PowerSync (hosted Cloud tier to start) and define sync rules
+- [x] Stand up PowerSync (hosted Cloud tier to start) and define sync rules
       partitioning every table by `schoolId`
-- [ ] Design schema with **Payments and Charges as append-only (insert-only)
+- [x] Design schema with **Payments and Charges as append-only (insert-only)
       tables** — avoids silent conflict-merge loss of financial records
       during offline sync
-- [ ] Build offline-first client on PowerSync's local SQLite layer (replaces
+- [x] Build offline-first client on PowerSync's local SQLite layer (replaces
       the earlier raw IndexedDB/Dexie plan)
-- [ ] Set up CI, staging environment, error monitoring
+- [x] Set up CI, staging environment, error monitoring (GitHub + Vercel +
+      Sentry)
 
 ### Phase 1 — Core loop
 - [ ] School onboarding (sign-up, class level selection, login)
