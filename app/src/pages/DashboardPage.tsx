@@ -67,6 +67,7 @@ export default function DashboardPage({ syncStatus }: { syncStatus: string }) {
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 13 }}>
           <Link to="/students">Students</Link>
           <Link to="/class-register">Class Register</Link>
+          <Link to="/household-payment">Household Payment</Link>
           <Link to="/reports">Reports</Link>
           <Link to="/settings">Settings</Link>
           <span style={{ color: '#64748b' }}>Sync: {syncStatus}</span>
@@ -152,6 +153,9 @@ export default function DashboardPage({ syncStatus }: { syncStatus: string }) {
         </Link>
         <Link to="/students" style={{ flex: '1 1 180px' }}>
           <div style={{ ...cardStyle, padding: '12px 14px', fontWeight: 600 }}>Search students</div>
+        </Link>
+        <Link to="/household-payment" style={{ flex: '1 1 180px' }}>
+          <div style={{ ...cardStyle, padding: '12px 14px', fontWeight: 600 }}>Record household payment</div>
         </Link>
         <Link to="/settings?tab=fees" style={{ flex: '1 1 180px' }}>
           <div style={{ ...cardStyle, padding: '12px 14px', fontWeight: 600 }}>Edit fee items</div>

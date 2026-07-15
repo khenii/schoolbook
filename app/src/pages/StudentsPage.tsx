@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@powersync/react';
+import { exportToCSV } from '../lib/csv';
 
 interface StudentRow {
   id: string;
@@ -9,6 +10,8 @@ interface StudentRow {
   admission_number: string;
   status: string;
   current_class_arm_id: string | null;
+  guardian_name: string | null;
+  guardian_phone: string | null;
 }
 
 interface ClassArmRow {
@@ -49,6 +52,21 @@ export default function StudentsPage() {
     );
   });
 
+  function handleExport() {
+    exportToCSV(
+      `students-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['Name', 'Admission #', 'Class', 'Status', 'Guardian Name', 'Guardian Phone'],
+      filtered.map((s) => [
+        `${s.last_name} ${s.first_name}`,
+        s.admission_number,
+        armLabel(s.current_class_arm_id),
+        s.status,
+        s.guardian_name ?? '',
+        s.guardian_phone ?? ''
+      ])
+    );
+  }
+
   return (
     <div style={{ maxWidth: 800, margin: '2rem auto', padding: '0 1rem' }}>
       <p>
@@ -56,9 +74,14 @@ export default function StudentsPage() {
       </p>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Students</h1>
-        <Link to="/students/new">
-          <button>+ Add student</button>
-        </Link>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={handleExport} disabled={filtered.length === 0}>
+            Export CSV
+          </button>
+          <Link to="/students/new">
+            <button>+ Add student</button>
+          </Link>
+        </div>
       </div>
 
       {navState?.justAdded && (

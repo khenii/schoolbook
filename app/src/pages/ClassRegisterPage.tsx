@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../lib/AppContext';
 import { useSchoolLedger } from '../hooks/useSchoolLedger';
+import { exportToCSV } from '../lib/csv';
 
 interface FeeItemRow {
   id: string;
@@ -85,6 +86,16 @@ export default function ClassRegisterPage() {
   const totalCollected = chargedRows.reduce((sum, r) => sum + r.paid, 0);
   const totalOutstanding = chargedRows.reduce((sum, r) => (r.balance > 0 ? sum + r.balance : sum), 0);
   const fullyPaidCount = chargedRows.filter((r) => r.balance <= 0).length;
+
+  function handleExport() {
+    const levelName = levels.find((l) => l.id === levelId)?.name ?? 'class';
+    const feeItemName = feeItems.find((f) => f.id === feeItemId)?.name ?? 'fee-item';
+    exportToCSV(
+      `class-register-${levelName}-${feeItemName}-${new Date().toISOString().slice(0, 10)}.csv`.replace(/\s+/g, '-'),
+      ['Student', 'Class', 'Charged', 'Paid', 'Balance'],
+      roster.map((r) => [r.name, r.classLabel, r.hasCharge ? r.charged : '', r.hasCharge ? r.paid : '', r.hasCharge ? r.balance : 'No charge'])
+    );
+  }
 
   function setRowInput(studentId: string, field: 'amount' | 'receipt', value: string) {
     setRowInputs((prev) => ({ ...prev, [studentId]: { ...prev[studentId], amount: prev[studentId]?.amount ?? '', receipt: prev[studentId]?.receipt ?? '', [field]: value } }));
@@ -228,6 +239,12 @@ export default function ClassRegisterPage() {
           <div style={labelStyle}>Date paid</div>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <button onClick={handleExport} disabled={roster.length === 0}>
+          Export CSV
+        </button>
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>

@@ -83,6 +83,14 @@ export default function ReportsPage() {
     );
   }
 
+  function handleExportCollections() {
+    exportToCSV(
+      `collections-summary-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['Class', 'Expected', 'Collected', 'Outstanding', 'Collection Rate %'],
+      collections.map((c) => [c.name, c.expected, c.collected, c.outstanding, c.pct ?? ''])
+    );
+  }
+
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.5rem 1rem 4rem' }}>
       <p>
@@ -292,6 +300,12 @@ export default function ReportsPage() {
                 {collectionsStats.collectedPct !== null ? 100 - collectionsStats.collectedPct : 0}% still outstanding
               </div>
             </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <button onClick={handleExportCollections} disabled={collections.length === 0}>
+              Export list
+            </button>
           </div>
 
           <div style={tableWrapStyle}>

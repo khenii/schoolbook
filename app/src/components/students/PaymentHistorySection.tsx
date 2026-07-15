@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
+import { useQuery } from '@powersync/react';
 import { useStudentLedger } from '../../hooks/useStudentLedger';
 
 export default function PaymentHistorySection({ studentId }: { studentId: string }) {
@@ -8,6 +9,43 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
     const c = charges.find((x) => x.id === chargeId);
     return c ? `${c.feeItemName} — ${c.sessionName} ${c.termName}` : chargeId;
   };
+
+  // A payment recorded from the Household Payment page can cover this
+  // student AND siblings in one go (spec §3.6). This student's own rows
+  // above only show their own slice — cross-reference siblings sharing the
+  // same household_transaction_id so it's clear, from this page alone,
+  // that the full amount received was bigger and where the rest went.
+  const { data: studentRows } = useQuery<{ household_id: string | null }>(
+    'SELECT household_id FROM students WHERE id = ?',
+    [studentId]
+  );
+  const householdId = studentRows[0]?.household_id ?? null;
+
+  const { data: siblingPayments } = useQuery<{
+    household_transaction_id: string | null;
+    amount_paid: number;
+    first_name: string;
+    last_name: string;
+  }>(
+    `SELECT p.household_transaction_id, p.amount_paid, s.first_name, s.last_name
+     FROM payments p JOIN students s ON s.id = p.student_id
+     WHERE s.household_id = ? AND p.student_id != ?`,
+    [householdId ?? '', studentId]
+  );
+
+  const siblingByTxn = useMemo(() => {
+    const map = new Map<string, { total: number; byChild: Map<string, number> }>();
+    for (const p of siblingPayments) {
+      if (!p.household_transaction_id) continue;
+      const key = p.household_transaction_id;
+      const name = `${p.last_name} ${p.first_name}`;
+      const existing = map.get(key) ?? { total: 0, byChild: new Map<string, number>() };
+      existing.total += p.amount_paid;
+      existing.byChild.set(name, (existing.byChild.get(name) ?? 0) + p.amount_paid);
+      map.set(key, existing);
+    }
+    return map;
+  }, [siblingPayments]);
 
   // Payments recorded in one go (e.g. a single ₦30,000 cash receipt split
   // across School Fees + Uniform) share a transaction id. Group them back
@@ -62,9 +100,11 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
             </tr>
           </thead>
           <tbody>
-            {groups.map((g) => (
+            {groups.map((g) => {
+              const siblingInfo = siblingByTxn.get(g.key);
+              return (
               <Fragment key={g.key}>
-                <tr style={{ borderBottom: '1px solid #eee', fontSize: 13 }}>
+                <tr style={{ borderBottom: siblingInfo ? 'none' : '1px solid #eee', fontSize: 13 }}>
                   <td style={{ padding: 6 }}>{g.date}</td>
                   <td style={{ padding: 6, fontWeight: 600 }}>
                     ₦{g.total.toLocaleString()}
@@ -94,8 +134,20 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
                     </td>
                   </tr>
                 )}
+                {siblingInfo && (
+                  <tr style={{ borderBottom: '1px solid #eee' }}>
+                    <td colSpan={5} style={{ padding: '0 6px 8px 6px', fontSize: 11.5, color: '#b8860b' }}>
+                      Part of a ₦{(g.total + siblingInfo.total).toLocaleString()} household payment — also covers{' '}
+                      {Array.from(siblingInfo.byChild.entries())
+                        .map(([name, amount]) => `${name} (₦${amount.toLocaleString()})`)
+                        .join(', ')}
+                      . Full breakdown on the Household Payment page.
+                    </td>
+                  </tr>
+                )}
               </Fragment>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       )}

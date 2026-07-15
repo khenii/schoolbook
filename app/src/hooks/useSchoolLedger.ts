@@ -61,6 +61,10 @@ export interface PaymentRow {
   student_id: string;
   amount_paid: number;
   date_paid: string;
+  method: string;
+  receipt_number: string | null;
+  household_transaction_id: string | null;
+  void_of_payment_id: string | null;
   created_at: string;
 }
 
@@ -89,7 +93,9 @@ export function useSchoolLedger() {
     'SELECT id, student_id, fee_item_id, term_id, session_id, class_level_id, amount_expected FROM charges'
   );
   const { data: payments } = useQuery<PaymentRow>(
-    'SELECT id, charge_id, student_id, amount_paid, date_paid, created_at FROM payments ORDER BY created_at DESC'
+    `SELECT id, charge_id, student_id, amount_paid, date_paid, method, receipt_number, household_transaction_id,
+            void_of_payment_id, created_at
+     FROM payments ORDER BY created_at DESC`
   );
 
   const armMap = useMemo(() => new Map(arms.map((a) => [a.id, a])), [arms]);

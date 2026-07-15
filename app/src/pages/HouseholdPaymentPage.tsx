@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { usePowerSync, useQuery } from '@powersync/react';
@@ -61,7 +61,7 @@ function allocateOldestFirst(chargeBalances: ReturnType<typeof useSchoolLedger>[
 export default function HouseholdPaymentPage() {
   const db = usePowerSync();
   const { account } = useAppContext();
-  const { chargeBalances, classLabel } = useSchoolLedger();
+  const { chargeBalances, classLabel, payments: allPayments, studentMap: allStudentsMap } = useSchoolLedger();
 
   const { data: households } = useQuery<HouseholdRow>('SELECT id, name, phone FROM households');
   const { data: students } = useQuery<StudentGuardianRow>(
@@ -139,6 +139,68 @@ export default function HouseholdPaymentPage() {
   }, [search, households, students, classLabel, balanceByStudent]);
 
   const selectedGroup = groups.find((g) => g.key === selectedGroupKey) ?? null;
+
+  // Reconciliation view: past transactions touching this household, so
+  // "what did the father's ₦20,000 last week actually cover" has one place
+  // to look, rather than piecing it together from each child's own page.
+  // Includes single-child transactions too (recorded from a student's own
+  // profile), not just ones split here — anything touching this household.
+  const householdTransactions = useMemo(() => {
+    if (!selectedGroup) return [];
+    const memberIds = new Set(selectedGroup.members.map((m) => m.studentId));
+    const relevant = allPayments.filter((p) => p.household_transaction_id && memberIds.has(p.student_id));
+
+    const byTxn = new Map<
+      string,
+      {
+        txnId: string;
+        date: string;
+        method: string;
+        receiptNumber: string | null;
+        createdAt: string;
+        byChild: Map<string, { name: string; amount: number }>;
+      }
+    >();
+
+    for (const p of relevant) {
+      const key = p.household_transaction_id!;
+      let group = byTxn.get(key);
+      if (!group) {
+        group = {
+          txnId: key,
+          date: p.date_paid,
+          method: p.method,
+          receiptNumber: p.receipt_number,
+          createdAt: p.created_at,
+          byChild: new Map()
+        };
+        byTxn.set(key, group);
+      }
+      const s = allStudentsMap.get(p.student_id);
+      const name = s ? `${s.last_name} ${s.first_name}` : 'Unknown student';
+      const existing = group.byChild.get(p.student_id) ?? { name, amount: 0 };
+      existing.amount += p.amount_paid;
+      group.byChild.set(p.student_id, existing);
+    }
+
+    return Array.from(byTxn.values())
+      .map((g) => ({
+        ...g,
+        total: Array.from(g.byChild.values()).reduce((sum, c) => sum + c.amount, 0),
+        children: Array.from(g.byChild.values())
+      }))
+      .filter((g) => g.total !== 0)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [selectedGroup, allPayments, allStudentsMap]);
+
+  const [expandedTxns, setExpandedTxns] = useState<Set<string>>(new Set());
+  const toggleTxn = (id: string) =>
+    setExpandedTxns((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const [totalAmount, setTotalAmount] = useState('');
   const [method, setMethod] = useState<Method>('cash');
@@ -415,6 +477,65 @@ export default function HouseholdPaymentPage() {
             {error && <p style={{ color: 'crimson' }}>{error}</p>}
             {success && <p style={{ color: 'green' }}>{success}</p>}
           </form>
+
+          <div style={{ marginTop: '2rem' }}>
+            <h2 style={{ fontSize: 15 }}>Recent household payments</h2>
+            <p style={{ fontSize: 12, color: '#64748b' }}>
+              Every recorded transaction touching this household, so a total received (e.g. one ₦20,000 handed over
+              in person) can be matched back to how it was split — this reconciles against a receipt book or bank
+              statement one line at a time, not one line per child.
+            </p>
+            {householdTransactions.length === 0 ? (
+              <p style={{ fontSize: 12.5, color: '#888' }}>No payments recorded for this household yet.</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd', fontSize: 12 }}>
+                    <th style={{ padding: 6 }}>Date</th>
+                    <th style={{ padding: 6 }}>Total received</th>
+                    <th style={{ padding: 6 }}>Method</th>
+                    <th style={{ padding: 6 }}>Receipt #</th>
+                    <th style={{ padding: 6 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {householdTransactions.map((t) => (
+                    <Fragment key={t.txnId}>
+                      <tr style={{ borderBottom: '1px solid #eee', fontSize: 13 }}>
+                        <td style={{ padding: 6 }}>{t.date}</td>
+                        <td style={{ padding: 6, fontWeight: 600 }}>
+                          ₦{t.total.toLocaleString()}
+                          {t.children.length > 1 && (
+                            <span style={{ color: '#888', fontWeight: 400 }}> ({t.children.length} children)</span>
+                          )}
+                        </td>
+                        <td style={{ padding: 6 }}>{t.method}</td>
+                        <td style={{ padding: 6 }}>{t.receiptNumber ?? '—'}</td>
+                        <td style={{ padding: 6 }}>
+                          {t.children.length > 1 && (
+                            <button onClick={() => toggleTxn(t.txnId)} style={{ fontSize: 11 }}>
+                              {expandedTxns.has(t.txnId) ? 'Hide breakdown' : 'Show breakdown'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                      {t.children.length > 1 && expandedTxns.has(t.txnId) && (
+                        <tr>
+                          <td colSpan={5} style={{ padding: '0 6px 8px 24px' }}>
+                            {t.children.map((c) => (
+                              <div key={c.name} style={{ fontSize: 12, color: '#555', padding: '2px 0' }}>
+                                {c.name} — ₦{c.amount.toLocaleString()}
+                              </div>
+                            ))}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       )}
     </div>
