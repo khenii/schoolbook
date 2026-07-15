@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePowerSync, useQuery } from '@powersync/react';
+import HouseholdSection from '../components/students/HouseholdSection';
 
 interface StudentRow {
   id: string;
@@ -16,6 +17,7 @@ interface StudentRow {
   guardian_phone: string | null;
   address: string | null;
   current_class_arm_id: string | null;
+  household_id: string | null;
 }
 
 interface ClassArmRow {
@@ -177,6 +179,8 @@ export default function StudentDetailPage() {
         </button>
         {saved && <span style={{ color: 'green', marginLeft: 8 }}>Saved.</span>}
       </form>
+
+      <HouseholdSection student={student} />
 
       <h2 style={{ marginTop: '2rem' }}>Charges generated at enrollment</h2>
       <p style={{ fontSize: 12, color: '#888' }}>

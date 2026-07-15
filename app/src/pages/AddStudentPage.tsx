@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../lib/AppContext';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { generateChargesForNewStudent } from '../lib/charges';
+import { linkStudentsToHousehold, normalizePhone } from '../lib/households';
 
 interface TermRow {
   id: string;
@@ -39,6 +40,13 @@ export default function AddStudentPage() {
     [activeSession?.id ?? '']
   );
   const { data: levels } = useQuery<ClassLevelRow>('SELECT id, name, sort_order FROM class_levels ORDER BY sort_order ASC');
+  const { data: studentsWithPhone } = useQuery<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    guardian_phone: string | null;
+    current_class_arm_id: string | null;
+  }>('SELECT id, first_name, last_name, guardian_phone, current_class_arm_id FROM students WHERE guardian_phone IS NOT NULL');
 
   const levelName = (id: string) => levels.find((l) => l.id === id)?.name ?? '';
   const sortedArms = [...arms].sort((a, b) => {
@@ -61,9 +69,26 @@ export default function AddStudentPage() {
   const [termId, setTermId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linkAsHousehold, setLinkAsHousehold] = useState(true);
 
   const effectiveTermId = termId || terms[0]?.id || '';
   const effectiveArmId = classArmId || sortedArms[0]?.id || '';
+
+  // Live sibling search per spec §3.6 — as the guardian phone is typed,
+  // check for existing students sharing the same number (digits-only
+  // comparison, so formatting differences don't cause a missed match).
+  const siblingMatches = useMemo(() => {
+    const normalized = normalizePhone(guardianPhone);
+    if (!normalized) return [];
+    return studentsWithPhone.filter((s) => s.guardian_phone && normalizePhone(s.guardian_phone) === normalized);
+  }, [guardianPhone, studentsWithPhone]);
+
+  const siblingLabel = (armId: string | null) => {
+    if (!armId) return '';
+    const arm = arms.find((a) => a.id === armId);
+    if (!arm) return '';
+    return ` (${levelName(arm.class_level_id)} ${arm.name})`;
+  };
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -123,6 +148,16 @@ export default function AddStudentPage() {
            VALUES (?, ?, ?, ?, ?, ?, 'initial', ?)`,
           [crypto.randomUUID(), schoolId, studentId, activeSession.id, arm.class_level_id, arm.id, now]
         );
+
+        if (guardianPhone.trim() && linkAsHousehold) {
+          const siblingIds = siblingMatches.map((s) => s.id);
+          await linkStudentsToHousehold(tx, {
+            schoolId,
+            studentIds: [studentId, ...siblingIds],
+            fallbackName: guardianName,
+            fallbackPhone: guardianPhone
+          });
+        }
 
         chargeCount = await generateChargesForNewStudent(tx, {
           schoolId,
@@ -185,6 +220,39 @@ export default function AddStudentPage() {
           value={guardianPhone}
           onChange={(e) => setGuardianPhone(e.target.value)}
         />
+
+        {siblingMatches.length > 0 && (
+          <div
+            style={{
+              border: '1px solid var(--color-gold)',
+              borderRadius: 8,
+              padding: 10,
+              margin: '0.5rem 0',
+              fontSize: 13
+            }}
+          >
+            <div>
+              Possible sibling{siblingMatches.length > 1 ? 's' : ''} found — same guardian phone:
+              <ul style={{ margin: '4px 0 8px 18px' }}>
+                {siblingMatches.map((s) => (
+                  <li key={s.id}>
+                    {s.first_name} {s.last_name}
+                    {siblingLabel(s.current_class_arm_id)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <label>
+              <input
+                type="checkbox"
+                checked={linkAsHousehold}
+                onChange={(e) => setLinkAsHousehold(e.target.checked)}
+              />{' '}
+              Link this student to the same household
+            </label>
+          </div>
+        )}
+
         <input placeholder="Address (optional)" value={address} onChange={(e) => setAddress(e.target.value)} />
 
         <label style={{ fontSize: 12, color: '#888' }}>Class arm</label>
