@@ -53,14 +53,29 @@ export function useDashboardStats() {
     return ids.size;
   }, [enrolledStudents, armMap]);
 
+  // Withdrawn/graduated students are excluded from "who owes money" style
+  // aggregates (arrears, defaulters, outstanding) — per spec §3.11, inactive
+  // students shouldn't clutter default active-view reports, though their
+  // balance stays fully visible on their own profile. "Collected this term"
+  // and the class collection rate stay unfiltered since those are factual
+  // totals of money actually received, not a chase-list.
+  const enrolledStudentIds = useMemo(() => new Set(enrolledStudents.map((s) => s.id)), [enrolledStudents]);
+
   const currentTermId = currentTerm?.id ?? null;
   const currentTermCharges = useMemo(
     () => chargeBalances.filter((c) => c.term_id === currentTermId),
     [chargeBalances, currentTermId]
   );
+  const currentTermChargesEnrolled = useMemo(
+    () => currentTermCharges.filter((c) => enrolledStudentIds.has(c.student_id)),
+    [currentTermCharges, enrolledStudentIds]
+  );
   const arrearsCharges = useMemo(
-    () => chargeBalances.filter((c) => c.term_id !== currentTermId && c.balance > 0),
-    [chargeBalances, currentTermId]
+    () =>
+      chargeBalances.filter(
+        (c) => c.term_id !== currentTermId && c.balance > 0 && enrolledStudentIds.has(c.student_id)
+      ),
+    [chargeBalances, currentTermId, enrolledStudentIds]
   );
 
   const collectedThisTerm = currentTermCharges.reduce((sum, c) => sum + c.paid, 0);
@@ -68,9 +83,12 @@ export function useDashboardStats() {
     currentTermCharges.filter((c) => c.paid > 0).map((c) => c.student_id)
   ).size;
 
-  const outstandingThisTerm = currentTermCharges.reduce((sum, c) => (c.balance > 0 ? sum + c.balance : sum), 0);
+  const outstandingThisTerm = currentTermChargesEnrolled.reduce(
+    (sum, c) => (c.balance > 0 ? sum + c.balance : sum),
+    0
+  );
   const outstandingThisTermStudents = new Set(
-    currentTermCharges.filter((c) => c.balance > 0).map((c) => c.student_id)
+    currentTermChargesEnrolled.filter((c) => c.balance > 0).map((c) => c.student_id)
   ).size;
 
   const totalArrears = arrearsCharges.reduce((sum, c) => sum + c.balance, 0);
@@ -79,7 +97,7 @@ export function useDashboardStats() {
   const topDefaulters = useMemo<DefaulterRow[]>(() => {
     const byStudent = new Map<string, { amountOwed: number; hasArrears: boolean }>();
     for (const c of chargeBalances) {
-      if (c.balance <= 0) continue;
+      if (c.balance <= 0 || !enrolledStudentIds.has(c.student_id)) continue;
       const existing = byStudent.get(c.student_id) ?? { amountOwed: 0, hasArrears: false };
       existing.amountOwed += c.balance;
       if (c.term_id !== currentTermId) existing.hasArrears = true;
@@ -98,7 +116,7 @@ export function useDashboardStats() {
       })
       .sort((a, b) => b.amountOwed - a.amountOwed)
       .slice(0, 5);
-  }, [chargeBalances, studentMap, classLabel, currentTermId]);
+  }, [chargeBalances, studentMap, classLabel, currentTermId, enrolledStudentIds]);
 
   const recentActivity = useMemo<ActivityRow[]>(() => {
     const chargeMap = new Map(charges.map((c) => [c.id, c]));

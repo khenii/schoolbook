@@ -68,6 +68,7 @@ export default function DashboardPage({ syncStatus }: { syncStatus: string }) {
           <Link to="/students">Students</Link>
           <Link to="/class-register">Class Register</Link>
           <Link to="/household-payment">Household Payment</Link>
+          <Link to="/promotion">Promotion</Link>
           <Link to="/reports">Reports</Link>
           <Link to="/settings">Settings</Link>
           <span style={{ color: '#64748b' }}>Sync: {syncStatus}</span>

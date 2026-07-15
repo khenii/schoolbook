@@ -30,6 +30,7 @@ export default function StudentsPage() {
   const navState = location.state as { justAdded?: string; chargeCount?: number } | null;
 
   const [search, setSearch] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
   const { data: students } = useQuery<StudentRow>('SELECT * FROM students ORDER BY last_name ASC, first_name ASC');
   const { data: arms } = useQuery<ClassArmRow>('SELECT id, class_level_id, name FROM class_arms');
   const { data: levels } = useQuery<ClassLevelRow>('SELECT id, name FROM class_levels');
@@ -42,15 +43,19 @@ export default function StudentsPage() {
     return `${level?.name ?? ''} ${arm.name}`.trim();
   };
 
-  const filtered = students.filter((s) => {
-    const q = search.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      s.first_name.toLowerCase().includes(q) ||
-      s.last_name.toLowerCase().includes(q) ||
-      s.admission_number.toLowerCase().includes(q)
-    );
-  });
+  const inactiveCount = students.filter((s) => s.status === 'withdrawn' || s.status === 'graduated').length;
+
+  const filtered = students
+    .filter((s) => showInactive || (s.status !== 'withdrawn' && s.status !== 'graduated'))
+    .filter((s) => {
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        s.first_name.toLowerCase().includes(q) ||
+        s.last_name.toLowerCase().includes(q) ||
+        s.admission_number.toLowerCase().includes(q)
+      );
+    });
 
   function handleExport() {
     exportToCSV(
@@ -97,6 +102,13 @@ export default function StudentsPage() {
         onChange={(e) => setSearch(e.target.value)}
         style={{ width: '100%', margin: '1rem 0' }}
       />
+
+      {inactiveCount > 0 && (
+        <label style={{ fontSize: 12.5, display: 'block', marginBottom: 8 }}>
+          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> Show
+          withdrawn/graduated students ({inactiveCount})
+        </label>
+      )}
 
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>

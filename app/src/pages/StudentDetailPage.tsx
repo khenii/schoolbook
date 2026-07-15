@@ -10,6 +10,7 @@ import ProfileSummary from '../components/students/ProfileSummary';
 import NotesSection from '../components/students/NotesSection';
 import PaymentHistorySection from '../components/students/PaymentHistorySection';
 import DiscountsSection from '../components/students/DiscountsSection';
+import ExitSection from '../components/students/ExitSection';
 
 interface StudentRow {
   id: string;
@@ -25,6 +26,8 @@ interface StudentRow {
   address: string | null;
   current_class_arm_id: string | null;
   household_id: string | null;
+  status_changed_at: string | null;
+  status_reason: string | null;
 }
 
 interface ClassArmRow {
@@ -175,6 +178,7 @@ export default function StudentDetailPage() {
       </p>
 
       <ProfileSummary studentId={student.id} />
+      <ExitSection student={student} />
       <NotesSection studentId={student.id} />
 
       <details>

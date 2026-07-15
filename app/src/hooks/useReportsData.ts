@@ -36,9 +36,17 @@ export interface CollectionReportRow {
 // (via useSchoolLedger), so a number here can never disagree with the
 // dashboard's for the same term.
 export function useReportsData() {
-  const { studentMap, armMap, levelMap, levels, classLabel, currentTerm, chargeBalances } = useSchoolLedger();
+  const { studentMap, enrolledStudents, armMap, levelMap, levels, classLabel, currentTerm, chargeBalances } =
+    useSchoolLedger();
 
   const currentTermId = currentTerm?.id ?? null;
+
+  // Withdrawn/graduated students are excluded from the Defaulters and
+  // Arrears tabs by default (spec §3.11) — these are "who to chase" lists,
+  // not factual collection totals, so an inactive student's old balance
+  // shouldn't inflate them. Collections summary stays unfiltered, matching
+  // the dashboard's treatment of the same distinction.
+  const enrolledStudentIds = useMemo(() => new Set(enrolledStudents.map((s) => s.id)), [enrolledStudents]);
 
   // A student's current class level name (just "SS3", not "SS3 A") — used
   // both for display and as the value the class-level filter dropdowns
@@ -56,15 +64,18 @@ export function useReportsData() {
     [chargeBalances, currentTermId]
   );
   const arrearsCharges = useMemo(
-    () => chargeBalances.filter((c) => c.term_id !== currentTermId && c.balance > 0),
-    [chargeBalances, currentTermId]
+    () =>
+      chargeBalances.filter(
+        (c) => c.term_id !== currentTermId && c.balance > 0 && enrolledStudentIds.has(c.student_id)
+      ),
+    [chargeBalances, currentTermId, enrolledStudentIds]
   );
 
   // ---- Defaulters: one row per student, current-term balance only ----
   const defaulters = useMemo<DefaulterReportRow[]>(() => {
     const byStudent = new Map<string, number>();
     for (const c of currentTermCharges) {
-      if (c.balance <= 0) continue;
+      if (c.balance <= 0 || !enrolledStudentIds.has(c.student_id)) continue;
       byStudent.set(c.student_id, (byStudent.get(c.student_id) ?? 0) + c.balance);
     }
     const arrearsStudentIds = new Set(arrearsCharges.map((c) => c.student_id));
@@ -80,7 +91,7 @@ export function useReportsData() {
         hasArrears: arrearsStudentIds.has(studentId)
       };
     });
-  }, [currentTermCharges, arrearsCharges, studentMap, classLabel, currentLevelName]);
+  }, [currentTermCharges, arrearsCharges, studentMap, classLabel, currentLevelName, enrolledStudentIds]);
 
   const defaulterStats = useMemo(() => {
     const totalOutstanding = defaulters.reduce((sum, d) => sum + d.amountOwed, 0);

@@ -15,6 +15,7 @@ import ReportsPage from './pages/ReportsPage';
 import ClassRegisterPage from './pages/ClassRegisterPage';
 import HouseholdPaymentPage from './pages/HouseholdPaymentPage';
 import ReceiptPage from './pages/ReceiptPage';
+import PromotionPage from './pages/PromotionPage';
 import SettingsPage from './pages/SettingsPage';
 import StudentsPage from './pages/StudentsPage';
 import AddStudentPage from './pages/AddStudentPage';
@@ -92,6 +93,7 @@ function Shell() {
               <Route path="/class-register" element={<ClassRegisterPage />} />
               <Route path="/household-payment" element={<HouseholdPaymentPage />} />
               <Route path="/receipt/:txnId" element={<ReceiptPage />} />
+              <Route path="/promotion" element={<PromotionPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/students" element={<StudentsPage />} />
               <Route path="/students/new" element={<AddStudentPage />} />
