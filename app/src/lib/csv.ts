@@ -14,3 +14,39 @@ export function exportToCSV(filename: string, headers: string[], rows: (string |
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// Minimal RFC-4180-ish CSV parser — handles quoted fields (so commas and
+// escaped double-quotes inside a cell don't split it), \r\n or \n line
+// endings, and blank trailing lines. Good enough for the sheets Excel/Google
+// Sheets produce when staff fill in the import templates; not a full CSV
+// spec implementation (no embedded newlines inside quoted fields).
+export function parseCSV(text: string): string[][] {
+  const lines = text.replace(/\r\n/g, '\n').split('\n').filter((l) => l.length > 0);
+  return lines.map((line) => {
+    const cells: string[] = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"' && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else if (ch === '"') {
+          inQuotes = false;
+        } else {
+          cur += ch;
+        }
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        cells.push(cur);
+        cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    cells.push(cur);
+    return cells.map((c) => c.trim());
+  });
+}
