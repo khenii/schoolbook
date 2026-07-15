@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { usePowerSync, useQuery } from '@powersync/react';
+import AppShell from '../components/AppShell';
 import { useAppContext } from '../lib/AppContext';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { exportToCSV } from '../lib/csv';
@@ -18,14 +18,13 @@ import type { ParsedStudentRow, ParsedChargePaymentRow, RowError } from '../lib/
 
 type Tab = 'students' | 'charges';
 
-const panelStyle: React.CSSProperties = {
-  background: 'white',
-  border: '1px solid #e2e8f0',
-  borderRadius: 10,
-  padding: '16px 18px',
-  marginBottom: 16
-};
-
+// No mockup covers Import (task #48) — Phase 5 added it after the 12
+// mockups were delivered. Styled from the same tokens/components as every
+// other page rather than left in its pre-restyle ad hoc state: .panel-block
+// from the dashboard for each of the two upload panels, .mode-toggle (from
+// the Payments record panel) for the Students/Charges switch instead of
+// inventing a new tab style, and .allocation-note (from Student
+// Profile/Payments) for the error and success banners, tinted rust/success.
 export default function ImportPage() {
   const db = usePowerSync();
   const { account } = useAppContext();
@@ -35,43 +34,48 @@ export default function ImportPage() {
   const [tab, setTab] = useState<Tab>('students');
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.5rem 1rem 4rem' }}>
-      <p>
-        <Link to="/">← Back to dashboard</Link>
-      </p>
-      <h1 style={{ marginBottom: 2 }}>Bulk import</h1>
-      <p style={{ color: '#64748b', margin: '0 0 16px' }}>
-        No digital records to upload from? Download a template, fill it in from your paper ledgers at your own
-        pace, then import the finished file here. Safe to import in batches — already-imported rows are
-        automatically skipped, so re-running the same file (or a growing version of it) won't create duplicates.
-      </p>
+    <AppShell title="Import" pageClass="page-import">
+      <div className="page-head">
+        <div className="eyebrow">Configuration</div>
+        <h2>Bulk import</h2>
+        <p>
+          No digital records to upload from? Download a template, fill it in from your paper ledgers at your own
+          pace, then import the finished file here. Safe to import in batches — already-imported rows are
+          automatically skipped, so re-running the same file (or a growing version of it) won't create duplicates.
+        </p>
+      </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <button onClick={() => setTab('students')} disabled={tab === 'students'}>
+      <div className="mode-toggle" style={{ width: 420, marginBottom: 20 }}>
+        <div className={tab === 'students' ? 'sel' : ''} onClick={() => setTab('students')}>
           1. Students
-        </button>
-        <button onClick={() => setTab('charges')} disabled={tab === 'charges'}>
-          2. Historical Charges &amp; Payments
-        </button>
+        </div>
+        <div className={tab === 'charges' ? 'sel' : ''} onClick={() => setTab('charges')}>
+          2. Charges &amp; Payments
+        </div>
       </div>
 
       {tab === 'students' ? (
-        <StudentsImportPanel db={db} schoolId={schoolId} accountId={account.id} activeSessionId={activeSession?.id ?? null} />
+        <StudentsImportPanel
+          db={db}
+          schoolId={schoolId}
+          accountId={account.id}
+          activeSessionId={activeSession?.id ?? null}
+        />
       ) : (
         <ChargesPaymentsImportPanel db={db} schoolId={schoolId} accountId={account.id} />
       )}
-    </div>
+    </AppShell>
   );
 }
 
 function ErrorList({ errors }: { errors: RowError[] }) {
   if (errors.length === 0) return null;
   return (
-    <div style={{ background: '#FBEBE9', border: '1px solid #f3c5c0', borderRadius: 8, padding: 10, marginTop: 10 }}>
-      <strong style={{ fontSize: 12.5, color: 'crimson' }}>
+    <div className="allocation-note" style={{ borderColor: 'var(--rust)', background: 'var(--rust-bg)', marginTop: 10 }}>
+      <strong style={{ fontSize: 12.5, color: 'var(--rust)' }}>
         {errors.length} row{errors.length === 1 ? '' : 's'} couldn't be imported:
       </strong>
-      <ul style={{ margin: '6px 0 0 18px', fontSize: 12, color: '#7a2e28', maxHeight: 220, overflowY: 'auto' }}>
+      <ul style={{ margin: '6px 0 0 18px', fontSize: 12, color: 'var(--rust)', maxHeight: 220, overflowY: 'auto' }}>
         {errors.map((e, i) => (
           <li key={i}>
             Row {e.row}: {e.message}
@@ -215,37 +219,54 @@ function StudentsImportPanel({
   }
 
   return (
-    <div style={panelStyle}>
-      <h2 style={{ marginTop: 0, fontSize: 15 }}>Students</h2>
-      <p style={{ fontSize: 12.5, color: '#64748b' }}>
-        Class Level and Arm must match what's configured in Settings for the currently active session — new
-        students from this import land there. Status defaults to "Existing" if left blank.
-      </p>
-      {!activeSessionId && (
-        <p style={{ color: 'crimson', fontSize: 12.5 }}>No active session — set one up in Settings first.</p>
-      )}
-
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '10px 0' }}>
-        <button onClick={downloadTemplate}>Download template</button>
-        <input ref={fileRef} type="file" accept=".csv" onChange={handleFile} />
+    <div className="panel-block">
+      <div className="panel-block-head">
+        <h3>Students</h3>
       </div>
-
-      {parsed && (
-        <>
-          <p style={{ fontSize: 12.5 }}>
-            <strong>{parsed.valid.length}</strong> ready to import
-            {parsed.skipped.length > 0 && `, ${parsed.skipped.length} already on file (skipped)`}
-            {parsed.errors.length > 0 && `, ${parsed.errors.length} with errors`}.
+      <div className="panel-block-body">
+        <p style={{ fontSize: 12.5, color: 'var(--slate-soft)', lineHeight: 1.55 }}>
+          Class Level and Arm must match what's configured in Settings for the currently active session — new
+          students from this import land there. Status defaults to "Existing" if left blank.
+        </p>
+        {!activeSessionId && (
+          <p className="field-error" style={{ display: 'block' }}>
+            No active session — set one up in Settings first.
           </p>
-          <ErrorList errors={parsed.errors} />
-          {parsed.valid.length > 0 && (
-            <button onClick={handleImport} disabled={importing || !activeSessionId} style={{ marginTop: 10 }}>
-              {importing ? 'Importing…' : `Import ${parsed.valid.length} student${parsed.valid.length === 1 ? '' : 's'}`}
-            </button>
-          )}
-        </>
-      )}
-      {result && <p style={{ fontSize: 12.5, color: 'green', marginTop: 10 }}>{result}</p>}
+        )}
+
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '14px 0' }}>
+          <button className="btn-ghost" onClick={downloadTemplate}>
+            Download template
+          </button>
+          <input ref={fileRef} type="file" accept=".csv" onChange={handleFile} />
+        </div>
+
+        {parsed && (
+          <>
+            <div className="result-count">
+              {parsed.valid.length} ready to import
+              {parsed.skipped.length > 0 && `, ${parsed.skipped.length} already on file (skipped)`}
+              {parsed.errors.length > 0 && `, ${parsed.errors.length} with errors`}
+            </div>
+            <ErrorList errors={parsed.errors} />
+            {parsed.valid.length > 0 && (
+              <button
+                className="btn-primary"
+                onClick={handleImport}
+                disabled={importing || !activeSessionId}
+                style={{ marginTop: 12 }}
+              >
+                {importing ? 'Importing…' : `Import ${parsed.valid.length} student${parsed.valid.length === 1 ? '' : 's'}`}
+              </button>
+            )}
+          </>
+        )}
+        {result && (
+          <div className="allocation-note" style={{ borderColor: 'var(--success)', background: 'var(--success-bg)', color: 'var(--success)', marginTop: 12 }}>
+            {result}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -362,35 +383,45 @@ function ChargesPaymentsImportPanel({
   }
 
   return (
-    <div style={panelStyle}>
-      <h2 style={{ marginTop: 0, fontSize: 15 }}>Historical Charges &amp; Payments</h2>
-      <p style={{ fontSize: 12.5, color: '#64748b' }}>
-        One row per fee item per student per term. Each row creates a charge for the exact amount from the paper
-        ledger — not today's fee pricing — and, if an amount was paid, a matching payment record. Session, Term,
-        Fee Item, and Class Level must already exist (Settings), and the student must already be imported.
-      </p>
-
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '10px 0' }}>
-        <button onClick={downloadTemplate}>Download template</button>
-        <input ref={fileRef} type="file" accept=".csv" onChange={handleFile} />
+    <div className="panel-block">
+      <div className="panel-block-head">
+        <h3>Historical Charges &amp; Payments</h3>
       </div>
+      <div className="panel-block-body">
+        <p style={{ fontSize: 12.5, color: 'var(--slate-soft)', lineHeight: 1.55 }}>
+          One row per fee item per student per term. Each row creates a charge for the exact amount from the paper
+          ledger — not today's fee pricing — and, if an amount was paid, a matching payment record. Session, Term,
+          Fee Item, and Class Level must already exist (Settings), and the student must already be imported.
+        </p>
 
-      {parsed && (
-        <>
-          <p style={{ fontSize: 12.5 }}>
-            <strong>{parsed.valid.length}</strong> ready to import
-            {parsed.skipped.length > 0 && `, ${parsed.skipped.length} already on file (skipped)`}
-            {parsed.errors.length > 0 && `, ${parsed.errors.length} with errors`}.
-          </p>
-          <ErrorList errors={parsed.errors} />
-          {parsed.valid.length > 0 && (
-            <button onClick={handleImport} disabled={importing} style={{ marginTop: 10 }}>
-              {importing ? 'Importing…' : `Import ${parsed.valid.length} row${parsed.valid.length === 1 ? '' : 's'}`}
-            </button>
-          )}
-        </>
-      )}
-      {result && <p style={{ fontSize: 12.5, color: 'green', marginTop: 10 }}>{result}</p>}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '14px 0' }}>
+          <button className="btn-ghost" onClick={downloadTemplate}>
+            Download template
+          </button>
+          <input ref={fileRef} type="file" accept=".csv" onChange={handleFile} />
+        </div>
+
+        {parsed && (
+          <>
+            <div className="result-count">
+              {parsed.valid.length} ready to import
+              {parsed.skipped.length > 0 && `, ${parsed.skipped.length} already on file (skipped)`}
+              {parsed.errors.length > 0 && `, ${parsed.errors.length} with errors`}
+            </div>
+            <ErrorList errors={parsed.errors} />
+            {parsed.valid.length > 0 && (
+              <button className="btn-primary" onClick={handleImport} disabled={importing} style={{ marginTop: 12 }}>
+                {importing ? 'Importing…' : `Import ${parsed.valid.length} row${parsed.valid.length === 1 ? '' : 's'}`}
+              </button>
+            )}
+          </>
+        )}
+        {result && (
+          <div className="allocation-note" style={{ borderColor: 'var(--success)', background: 'var(--success-bg)', color: 'var(--success)', marginTop: 12 }}>
+            {result}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

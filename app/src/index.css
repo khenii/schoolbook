@@ -202,6 +202,21 @@ body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink)
    but the real page needs an Export CSV action next to the selectors. */
 .page-register .btn-ghost{ padding:9px 15px; background:var(--paper-card); color:var(--slate); border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; }
 
+/* Import has no mockup at all (task #48) — these fill the same gap for it:
+   a page-head variant (none of the mockups' page-head rules are unscoped,
+   every one of them is keyed to a specific page), plus the two button
+   families this page needs. Kept consistent with the settings/register
+   family (padding, radius, font-size) rather than inventing a new look. */
+.page-import .page-head{ margin-bottom:18px; }
+.page-import .page-head p{ font-size:13px; color:var(--slate-soft); margin-top:4px; max-width:560px; }
+.page-import .btn-ghost{ padding:9px 15px; background:var(--paper-card); color:var(--slate); border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; }
+.page-import .btn-primary{ padding:10px 16px; background:var(--ink); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:background .15s ease; white-space:nowrap; }
+
+/* .panel-block (dashboard's card family) never needed an inner padded
+   body before — its existing users (.def-row/.act-row) supply their own
+   row padding. Import's panels hold free-form content instead. */
+.panel-block-body{ padding:18px; }
+
 .page-students .filter-bar, .page-payments .filter-bar, .page-auditlog .filter-bar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
 
 .page-reports .filter-bar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
