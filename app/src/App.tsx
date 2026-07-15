@@ -1,94 +1,99 @@
 import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { PowerSyncContext } from '@powersync/react';
 import type { Session } from '@supabase/supabase-js';
 import { powersync, connectPowerSync } from './lib/powersync';
 import { supabase } from './lib/supabase';
+import { getMyAccount } from './lib/account';
+import type { Account } from './lib/account';
+import { AppContextProvider } from './lib/AppContext';
+import AuthScreen from './components/AuthScreen';
+import SchoolSetupForm from './components/SchoolSetupForm';
+import ClassLevelSetup from './components/ClassLevelSetup';
+import DashboardPage from './pages/DashboardPage';
+import SettingsPage from './pages/SettingsPage';
 
-function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+type AppState =
+  | { step: 'loading' }
+  | { step: 'auth' }
+  | { step: 'school-setup' }
+  | { step: 'class-levels'; schoolId: string }
+  | { step: 'ready'; session: Session; account: Account };
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
-  }
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <h1>Schoolbook</h1>
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
-      <button type="submit">Log in</button>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-    </form>
-  );
-}
-
-function Dashboard({ session }: { session: Session }) {
-  const [status, setStatus] = useState('connecting…');
+function Shell() {
+  const [state, setState] = useState<AppState>({ step: 'loading' });
+  const [syncStatus, setSyncStatus] = useState('connecting…');
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    let unsubscribeSync: (() => void) | undefined;
 
-    connectPowerSync()
-      .then(() => setStatus('connected'))
-      .catch((err) => setStatus(`error: ${err.message}`));
+    async function resolve(session: Session | null) {
+      if (!session) {
+        setState({ step: 'auth' });
+        return;
+      }
 
-    unsubscribe = powersync.registerListener({
-      statusChanged: (s) => setStatus(s.connected ? 'synced' : 'offline — changes queued locally')
-    });
+      if (!unsubscribeSync) {
+        connectPowerSync().catch((err) => setSyncStatus(`error: ${err.message}`));
+        unsubscribeSync = powersync.registerListener({
+          statusChanged: (s) => setSyncStatus(s.connected ? 'synced' : 'offline — changes queued locally')
+        });
+      }
 
-    return () => unsubscribe?.();
+      const account = await getMyAccount(session.user.id);
+      setState(account ? { step: 'ready', session, account } : { step: 'school-setup' });
+    }
+
+    supabase.auth.getSession().then(({ data }) => resolve(data.session));
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => resolve(session));
+
+    return () => {
+      subscription.unsubscribe();
+      unsubscribeSync?.();
+    };
   }, []);
 
-  return (
-    <div style={{ maxWidth: 480, margin: '4rem auto', textAlign: 'center' }}>
-      <h1>Schoolbook</h1>
-      <p>Logged in as {session.user.email}</p>
-      <p>PowerSync status: {status}</p>
-      <button onClick={() => supabase.auth.signOut()}>Log out</button>
-    </div>
-  );
+  switch (state.step) {
+    case 'loading':
+      return <p style={{ textAlign: 'center', marginTop: '4rem' }}>Loading…</p>;
+    case 'auth':
+      return <AuthScreen />;
+    case 'school-setup':
+      return <SchoolSetupForm onComplete={(schoolId) => setState({ step: 'class-levels', schoolId })} />;
+    case 'class-levels':
+      return (
+        <ClassLevelSetup
+          schoolId={state.schoolId}
+          onComplete={() => {
+            supabase.auth.getSession().then(async ({ data }) => {
+              if (!data.session) return;
+              const account = await getMyAccount(data.session.user.id);
+              if (account) setState({ step: 'ready', session: data.session, account });
+            });
+          }}
+        />
+      );
+    case 'ready':
+      return (
+        <AppContextProvider value={{ session: state.session, account: state.account }}>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<DashboardPage syncStatus={syncStatus} />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </AppContextProvider>
+      );
+  }
 }
 
 export default function App() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (loading) return <p style={{ textAlign: 'center', marginTop: '4rem' }}>Loading…</p>;
-
   return (
     <PowerSyncContext.Provider value={powersync}>
-      {session ? <Dashboard session={session} /> : <LoginForm />}
+      <Shell />
     </PowerSyncContext.Provider>
   );
 }

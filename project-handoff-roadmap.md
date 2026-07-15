@@ -117,6 +117,16 @@ enforced at the database layer via row-level security, not just app code),
       a demo dataset)
 
 ### Phase 5 — Pilot
+- [ ] **Historical data migration (decided 2026-07-15):** the pilot school's
+      records are paper ledgers/receipts, nothing digital — so a plain
+      "upload your export" CSV importer doesn't apply, since there's no
+      existing digital source to upload. Approach instead: provide
+      downloadable spreadsheet **templates** (Students; historical
+      Charges/Payments per session/term) that staff transcribe from the
+      paper ledgers at their own pace — much faster than clicking through
+      web forms hundreds of times — then bulk-import the filled templates.
+      This becomes real build work, not just a migration step; scope it
+      properly rather than assuming manual re-entry.
 - [ ] Migrate one real school's data (use the "reported vs enrolled"
       headcount pattern from Classes & Arms to track migration progress)
 - [ ] Run a full term with real staff, real payments
