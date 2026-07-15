@@ -4,6 +4,7 @@ import { useAppContext } from '../lib/AppContext';
 import { useActiveSession } from '../hooks/useActiveSession';
 import SessionBootstrap from '../components/SessionBootstrap';
 import ClassesArmsTab from '../components/settings/ClassesArmsTab';
+import FeeItemsTab from '../components/settings/FeeItemsTab';
 
 export default function SettingsPage() {
   const { account } = useAppContext();
@@ -38,7 +39,7 @@ export default function SettingsPage() {
       </div>
 
       {tab === 'classes' && <ClassesArmsTab activeSessionId={activeSession.id} />}
-      {tab === 'fees' && <p>Fee Items configuration is next up.</p>}
+      {tab === 'fees' && <FeeItemsTab />}
     </div>
   );
 }
