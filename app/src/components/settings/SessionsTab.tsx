@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../../lib/AppContext';
+import { generateRecurringChargesForTerm } from '../../lib/charges';
 
 interface SessionRow {
   id: string;
@@ -9,17 +10,27 @@ interface SessionRow {
   created_at: string;
 }
 
+interface TermRow {
+  id: string;
+  session_id: string;
+  name: string;
+}
+
 export default function SessionsTab() {
   const db = usePowerSync();
   const { account } = useAppContext();
   const schoolId = account.school_id;
 
   const { data: sessions } = useQuery<SessionRow>('SELECT * FROM sessions ORDER BY name DESC');
+  const { data: terms } = useQuery<TermRow>('SELECT id, session_id, name FROM terms ORDER BY created_at ASC');
 
   const [name, setName] = useState('');
   const [makeActive, setMakeActive] = useState(true);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openSessionId, setOpenSessionId] = useState<string | null>(null);
+  const [termMessage, setTermMessage] = useState<Record<string, string>>({});
+  const [generating, setGenerating] = useState<string | null>(null);
 
   async function createSession() {
     const trimmed = name.trim();
@@ -58,6 +69,34 @@ export default function SessionsTab() {
     });
   }
 
+  async function handleGenerateCharges(term: TermRow) {
+    if (
+      !confirm(
+        `Generate recurring charges for every enrolled student for "${term.name}"? Safe to re-run — already-charged students are skipped.`
+      )
+    ) {
+      return;
+    }
+    setGenerating(term.id);
+    setTermMessage((prev) => ({ ...prev, [term.id]: '' }));
+    try {
+      const result = await db.writeTransaction((tx) =>
+        generateRecurringChargesForTerm(tx, { schoolId, termId: term.id, sessionId: term.session_id })
+      );
+      setTermMessage((prev) => ({
+        ...prev,
+        [term.id]: `${result.generated} charge${result.generated === 1 ? '' : 's'} generated, ${result.skipped} already up to date.`
+      }));
+    } catch (err) {
+      setTermMessage((prev) => ({
+        ...prev,
+        [term.id]: err instanceof Error ? `Error: ${err.message}` : 'Something went wrong'
+      }));
+    } finally {
+      setGenerating(null);
+    }
+  }
+
   return (
     <div>
       <p style={{ color: 'var(--color-slate)', fontSize: 13 }}>
@@ -66,27 +105,55 @@ export default function SessionsTab() {
         migrating past paper records.
       </p>
 
-      {sessions.map((s) => (
-        <div
-          key={s.id}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            border: '1px solid #ddd',
-            borderRadius: 8,
-            padding: 12,
-            marginBottom: 8
-          }}
-        >
-          <strong style={{ flex: 1 }}>{s.name}</strong>
-          {s.is_active ? (
-            <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'green' }}>ACTIVE</span>
-          ) : (
-            <button onClick={() => setActive(s.id)}>Set as active</button>
-          )}
-        </div>
-      ))}
+      {sessions.map((s) => {
+        const sessionTerms = terms.filter((t) => t.session_id === s.id);
+        const isOpen = openSessionId === s.id;
+        return (
+          <div key={s.id} style={{ border: '1px solid #ddd', borderRadius: 8, marginBottom: 8, padding: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <strong style={{ flex: 1, cursor: 'pointer' }} onClick={() => setOpenSessionId(isOpen ? null : s.id)}>
+                {s.name}
+              </strong>
+              {s.is_active ? (
+                <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'green' }}>ACTIVE</span>
+              ) : (
+                <button onClick={() => setActive(s.id)}>Set as active</button>
+              )}
+              <button onClick={() => setOpenSessionId(isOpen ? null : s.id)}>{isOpen ? 'Hide terms' : 'Terms'}</button>
+            </div>
+
+            {isOpen && (
+              <div style={{ marginTop: 12, paddingLeft: 12 }}>
+                <p style={{ fontSize: 12, color: '#888' }}>
+                  Generating recurring charges bills every currently-enrolled student for that term's all-students
+                  recurring fee items (e.g. School Fees). One-off and new-students-only items are never generated
+                  here — those only happen once, at enrollment.
+                </p>
+                {sessionTerms.map((t) => (
+                  <div
+                    key={t.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 0',
+                      borderBottom: '1px solid #eee'
+                    }}
+                  >
+                    <span style={{ flex: 1 }}>{t.name}</span>
+                    <button onClick={() => handleGenerateCharges(t)} disabled={generating === t.id}>
+                      {generating === t.id ? 'Generating…' : 'Generate recurring charges'}
+                    </button>
+                    {termMessage[t.id] && (
+                      <span style={{ fontSize: 12, color: '#555', marginLeft: 8 }}>{termMessage[t.id]}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       {adding ? (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

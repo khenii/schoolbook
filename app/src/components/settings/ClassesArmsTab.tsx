@@ -38,10 +38,13 @@ export default function ClassesArmsTab() {
 
   const [openLevelId, setOpenLevelId] = useState<string | null>(null);
   const [newArmName, setNewArmName] = useState<Record<string, string>>({});
+  const [armError, setArmError] = useState<Record<string, string>>({});
   const [newLevelName, setNewLevelName] = useState('');
   const [addingLevel, setAddingLevel] = useState(false);
+  const [addLevelError, setAddLevelError] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   const sortedLevels = [...levels].sort((a, b) => a.sort_order - b.sort_order);
   const armsByLevel = (levelId: string) => arms.filter((a) => a.class_level_id === levelId);
@@ -49,6 +52,11 @@ export default function ClassesArmsTab() {
   async function addLevel() {
     const name = newLevelName.trim();
     if (!name) return;
+    setAddLevelError(null);
+    if (levels.some((l) => l.name.trim().toLowerCase() === name.toLowerCase())) {
+      setAddLevelError(`"${name}" already exists.`);
+      return;
+    }
     const nextOrder = levels.length;
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -63,6 +71,12 @@ export default function ClassesArmsTab() {
   async function renameLevel(id: string) {
     const name = renameValue.trim();
     if (!name) return;
+    setRenameError(null);
+    const collides = levels.some((l) => l.id !== id && l.name.trim().toLowerCase() === name.toLowerCase());
+    if (collides) {
+      setRenameError(`"${name}" already exists.`);
+      return;
+    }
     await db.execute('UPDATE class_levels SET name = ? WHERE id = ?', [name, id]);
     setRenamingId(null);
   }
@@ -92,6 +106,12 @@ export default function ClassesArmsTab() {
     if (!viewingSessionId) return;
     const name = (newArmName[levelId] ?? '').trim().toUpperCase();
     if (!name) return;
+    setArmError((prev) => ({ ...prev, [levelId]: '' }));
+    const collides = armsByLevel(levelId).some((a) => a.name.trim().toUpperCase() === name);
+    if (collides) {
+      setArmError((prev) => ({ ...prev, [levelId]: `Arm "${name}" already exists for this level.` }));
+      return;
+    }
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     await db.execute(
@@ -145,14 +165,22 @@ export default function ClassesArmsTab() {
               </button>
               <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setOpenLevelId(isOpen ? null : level.id)}>
                 {renamingId === level.id ? (
-                  <input
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    onBlur={() => renameLevel(level.id)}
-                    onKeyDown={(e) => e.key === 'Enter' && renameLevel(level.id)}
-                    autoFocus
-                  />
+                  <>
+                    <input
+                      value={renameValue}
+                      onChange={(e) => {
+                        setRenameValue(e.target.value);
+                        setRenameError(null);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onBlur={() => renameLevel(level.id)}
+                      onKeyDown={(e) => e.key === 'Enter' && renameLevel(level.id)}
+                      autoFocus
+                    />
+                    {renameError && (
+                      <div style={{ color: 'crimson', fontSize: 11.5 }}>{renameError}</div>
+                    )}
+                  </>
                 ) : (
                   <strong>{level.name}</strong>
                 )}
@@ -190,10 +218,16 @@ export default function ClassesArmsTab() {
                   <input
                     placeholder="New arm name, e.g. D"
                     value={newArmName[level.id] ?? ''}
-                    onChange={(e) => setNewArmName((prev) => ({ ...prev, [level.id]: e.target.value }))}
+                    onChange={(e) => {
+                      setNewArmName((prev) => ({ ...prev, [level.id]: e.target.value }));
+                      setArmError((prev) => ({ ...prev, [level.id]: '' }));
+                    }}
                   />
                   <button onClick={() => addArm(level.id)}>Add arm</button>
                 </div>
+                {armError[level.id] && (
+                  <p style={{ color: 'crimson', fontSize: 12 }}>{armError[level.id]}</p>
+                )}
               </div>
             )}
           </div>
@@ -201,22 +235,29 @@ export default function ClassesArmsTab() {
       })}
 
       {addingLevel ? (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            placeholder="Class level name, e.g. Creche"
-            value={newLevelName}
-            onChange={(e) => setNewLevelName(e.target.value)}
-            autoFocus
-          />
-          <button onClick={addLevel}>Add</button>
-          <button
-            onClick={() => {
-              setAddingLevel(false);
-              setNewLevelName('');
-            }}
-          >
-            Cancel
-          </button>
+        <div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              placeholder="Class level name, e.g. Creche"
+              value={newLevelName}
+              onChange={(e) => {
+                setNewLevelName(e.target.value);
+                setAddLevelError(null);
+              }}
+              autoFocus
+            />
+            <button onClick={addLevel}>Add</button>
+            <button
+              onClick={() => {
+                setAddingLevel(false);
+                setNewLevelName('');
+                setAddLevelError(null);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+          {addLevelError && <p style={{ color: 'crimson', fontSize: 12.5 }}>{addLevelError}</p>}
         </div>
       ) : (
         <div

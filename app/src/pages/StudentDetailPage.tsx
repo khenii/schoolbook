@@ -32,6 +32,7 @@ interface ClassLevelRow {
 interface ChargeRow {
   id: string;
   fee_item_id: string;
+  session_id: string;
   term_id: string;
   amount_expected: number;
 }
@@ -46,6 +47,11 @@ interface TermRow {
   name: string;
 }
 
+interface SessionRow {
+  id: string;
+  name: string;
+}
+
 export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const db = usePowerSync();
@@ -56,11 +62,12 @@ export default function StudentDetailPage() {
   const { data: arms } = useQuery<ClassArmRow>('SELECT id, class_level_id, name FROM class_arms');
   const { data: levels } = useQuery<ClassLevelRow>('SELECT id, name FROM class_levels');
   const { data: charges } = useQuery<ChargeRow>(
-    'SELECT id, fee_item_id, term_id, amount_expected FROM charges WHERE student_id = ?',
+    'SELECT id, fee_item_id, session_id, term_id, amount_expected FROM charges WHERE student_id = ?',
     [id ?? '']
   );
   const { data: feeItems } = useQuery<FeeItemRow>('SELECT id, name FROM fee_items');
   const { data: terms } = useQuery<TermRow>('SELECT id, name FROM terms');
+  const { data: sessions } = useQuery<SessionRow>('SELECT id, name FROM sessions');
 
   const [form, setForm] = useState<Partial<StudentRow>>({});
   const [saving, setSaving] = useState(false);
@@ -180,6 +187,7 @@ export default function StudentDetailPage() {
         <thead>
           <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd' }}>
             <th style={{ padding: 8 }}>Fee item</th>
+            <th style={{ padding: 8 }}>Session</th>
             <th style={{ padding: 8 }}>Term</th>
             <th style={{ padding: 8 }}>Amount expected</th>
           </tr>
@@ -187,14 +195,17 @@ export default function StudentDetailPage() {
         <tbody>
           {charges.map((c) => (
             <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: 8 }}>{feeItems.find((f) => f.id === c.fee_item_id)?.name ?? c.fee_item_id}</td>
+              <td style={{ padding: 8 }} title={`fee_item_id: ${c.fee_item_id}`}>
+                {feeItems.find((f) => f.id === c.fee_item_id)?.name ?? c.fee_item_id}
+              </td>
+              <td style={{ padding: 8 }}>{sessions.find((s) => s.id === c.session_id)?.name ?? c.session_id}</td>
               <td style={{ padding: 8 }}>{terms.find((t) => t.id === c.term_id)?.name ?? c.term_id}</td>
               <td style={{ padding: 8 }}>₦{c.amount_expected.toLocaleString()}</td>
             </tr>
           ))}
           {charges.length === 0 && (
             <tr>
-              <td colSpan={3} style={{ padding: 8, color: '#888' }}>
+              <td colSpan={4} style={{ padding: 8, color: '#888' }}>
                 No charges.
               </td>
             </tr>

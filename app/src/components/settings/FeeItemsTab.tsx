@@ -35,6 +35,7 @@ export default function FeeItemsTab() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [newFeeName, setNewFeeName] = useState('');
   const [addingFee, setAddingFee] = useState(false);
+  const [addFeeError, setAddFeeError] = useState<string | null>(null);
   const [flatPriceInput, setFlatPriceInput] = useState<Record<string, string>>({});
 
   const sortedLevels = [...classLevels].sort((a, b) => a.sort_order - b.sort_order);
@@ -45,6 +46,12 @@ export default function FeeItemsTab() {
   async function addFeeItem() {
     const name = newFeeName.trim();
     if (!name) return;
+    setAddFeeError(null);
+    const isDuplicate = feeItems.some((f) => f.name.trim().toLowerCase() === name.toLowerCase());
+    if (isDuplicate) {
+      setAddFeeError(`"${name}" already exists — change its price instead of adding a duplicate.`);
+      return;
+    }
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     await db.writeTransaction(async (tx) => {
@@ -215,22 +222,29 @@ export default function FeeItemsTab() {
       })}
 
       {addingFee ? (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            placeholder="Fee item name, e.g. Textbooks"
-            value={newFeeName}
-            onChange={(e) => setNewFeeName(e.target.value)}
-            autoFocus
-          />
-          <button onClick={addFeeItem}>Add</button>
-          <button
-            onClick={() => {
-              setAddingFee(false);
-              setNewFeeName('');
-            }}
-          >
-            Cancel
-          </button>
+        <div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              placeholder="Fee item name, e.g. Textbooks"
+              value={newFeeName}
+              onChange={(e) => {
+                setNewFeeName(e.target.value);
+                setAddFeeError(null);
+              }}
+              autoFocus
+            />
+            <button onClick={addFeeItem}>Add</button>
+            <button
+              onClick={() => {
+                setAddingFee(false);
+                setNewFeeName('');
+                setAddFeeError(null);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+          {addFeeError && <p style={{ color: 'crimson', fontSize: 12.5 }}>{addFeeError}</p>}
         </div>
       ) : (
         <div
