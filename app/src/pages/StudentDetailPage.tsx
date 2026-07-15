@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePowerSync, useQuery } from '@powersync/react';
+import { useAppContext } from '../lib/AppContext';
 import { useStudentLedger } from '../hooks/useStudentLedger';
 import HouseholdSection from '../components/students/HouseholdSection';
 import PaymentSection from '../components/students/PaymentSection';
@@ -39,6 +40,7 @@ interface ClassLevelRow {
 export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const db = usePowerSync();
+  const { account } = useAppContext();
   const studentId = id ?? '';
 
   const { data: studentRows } = useQuery<StudentRow>('SELECT * FROM students WHERE id = ?', [studentId]);
@@ -51,6 +53,64 @@ export default function StudentDetailPage() {
   const [form, setForm] = useState<Partial<StudentRow>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  const [writeOffChargeId, setWriteOffChargeId] = useState<string | null>(null);
+  const [writeOffAmount, setWriteOffAmount] = useState('');
+  const [writeOffReason, setWriteOffReason] = useState('');
+  const [writeOffSaving, setWriteOffSaving] = useState(false);
+  const [writeOffError, setWriteOffError] = useState<string | null>(null);
+
+  function startWriteOff(chargeId: string, balance: number) {
+    setWriteOffChargeId(chargeId);
+    setWriteOffAmount(String(balance));
+    setWriteOffReason('');
+    setWriteOffError(null);
+  }
+
+  function cancelWriteOff() {
+    setWriteOffChargeId(null);
+    setWriteOffAmount('');
+    setWriteOffReason('');
+    setWriteOffError(null);
+  }
+
+  async function confirmWriteOff(chargeId: string, balance: number) {
+    const amount = Number(writeOffAmount);
+    if (!amount || amount <= 0) {
+      setWriteOffError('Enter an amount greater than zero.');
+      return;
+    }
+    if (amount > balance) {
+      setWriteOffError(`Exceeds this charge's outstanding balance (₦${balance.toLocaleString()}).`);
+      return;
+    }
+    if (!writeOffReason.trim()) {
+      setWriteOffError('A reason is required — this is a permanent record.');
+      return;
+    }
+    setWriteOffSaving(true);
+    try {
+      await db.execute(
+        `INSERT INTO write_offs (id, school_id, charge_id, student_id, amount, reason, written_off_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          crypto.randomUUID(),
+          account.school_id,
+          chargeId,
+          studentId,
+          amount,
+          writeOffReason.trim(),
+          account.id,
+          new Date().toISOString()
+        ]
+      );
+      cancelWriteOff();
+    } catch (err) {
+      setWriteOffError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setWriteOffSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (student) setForm(student);
@@ -174,27 +234,68 @@ export default function StudentDetailPage() {
             <th style={{ padding: 8 }}>Term</th>
             <th style={{ padding: 8 }}>Expected</th>
             <th style={{ padding: 8 }}>Paid</th>
+            <th style={{ padding: 8 }}>Written off</th>
             <th style={{ padding: 8 }}>Balance</th>
+            <th style={{ padding: 8 }} />
           </tr>
         </thead>
         <tbody>
           {charges.map((c) => (
-            <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: 8 }} title={`fee_item_id: ${c.fee_item_id}`}>
-                {c.feeItemName}
-              </td>
-              <td style={{ padding: 8 }}>{c.sessionName}</td>
-              <td style={{ padding: 8 }}>{c.termName}</td>
-              <td style={{ padding: 8 }}>₦{c.amount_expected.toLocaleString()}</td>
-              <td style={{ padding: 8 }}>₦{c.paid.toLocaleString()}</td>
-              <td style={{ padding: 8, color: c.balance > 0 ? 'crimson' : 'inherit' }}>
-                ₦{c.balance.toLocaleString()}
-              </td>
-            </tr>
+            <Fragment key={c.id}>
+              <tr style={{ borderBottom: writeOffChargeId === c.id ? 'none' : '1px solid #eee' }}>
+                <td style={{ padding: 8 }} title={`fee_item_id: ${c.fee_item_id}`}>
+                  {c.feeItemName}
+                </td>
+                <td style={{ padding: 8 }}>{c.sessionName}</td>
+                <td style={{ padding: 8 }}>{c.termName}</td>
+                <td style={{ padding: 8 }}>₦{c.amount_expected.toLocaleString()}</td>
+                <td style={{ padding: 8 }}>₦{c.paid.toLocaleString()}</td>
+                <td style={{ padding: 8, color: c.writtenOff > 0 ? '#b8860b' : 'inherit' }}>
+                  {c.writtenOff > 0 ? `₦${c.writtenOff.toLocaleString()}` : '—'}
+                </td>
+                <td style={{ padding: 8, color: c.balance > 0 ? 'crimson' : 'inherit' }}>
+                  ₦{c.balance.toLocaleString()}
+                </td>
+                <td style={{ padding: 8 }}>
+                  {c.balance > 0 && writeOffChargeId !== c.id && (
+                    <button onClick={() => startWriteOff(c.id, c.balance)} style={{ fontSize: 11 }}>
+                      Write off
+                    </button>
+                  )}
+                </td>
+              </tr>
+              {writeOffChargeId === c.id && (
+                <tr style={{ borderBottom: '1px solid #eee' }}>
+                  <td colSpan={8} style={{ padding: '0 8px 10px' }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input
+                        type="number"
+                        value={writeOffAmount}
+                        onChange={(e) => setWriteOffAmount(e.target.value)}
+                        style={{ width: 110 }}
+                      />
+                      <input
+                        placeholder="Reason (required)"
+                        value={writeOffReason}
+                        onChange={(e) => setWriteOffReason(e.target.value)}
+                        style={{ flex: 1, minWidth: 200 }}
+                      />
+                      <button onClick={() => confirmWriteOff(c.id, c.balance)} disabled={writeOffSaving}>
+                        {writeOffSaving ? 'Saving…' : 'Confirm write-off'}
+                      </button>
+                      <button type="button" onClick={cancelWriteOff}>
+                        Cancel
+                      </button>
+                    </div>
+                    {writeOffError && <p style={{ color: 'crimson', fontSize: 12, margin: '4px 0 0' }}>{writeOffError}</p>}
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           ))}
           {charges.length === 0 && (
             <tr>
-              <td colSpan={6} style={{ padding: 8, color: '#888' }}>
+              <td colSpan={8} style={{ padding: 8, color: '#888' }}>
                 No charges.
               </td>
             </tr>

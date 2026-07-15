@@ -68,8 +68,15 @@ export interface PaymentRow {
   created_at: string;
 }
 
+interface WriteOffRow {
+  id: string;
+  charge_id: string;
+  amount: number;
+}
+
 export interface LedgerChargeRow extends ChargeRow {
   paid: number;
+  writtenOff: number;
   balance: number;
   termName: string;
   sessionName: string;
@@ -97,6 +104,7 @@ export function useSchoolLedger() {
             void_of_payment_id, created_at
      FROM payments ORDER BY created_at DESC`
   );
+  const { data: writeOffs } = useQuery<WriteOffRow>('SELECT id, charge_id, amount FROM write_offs');
 
   const armMap = useMemo(() => new Map(arms.map((a) => [a.id, a])), [arms]);
   const levelMap = useMemo(() => new Map(levels.map((l) => [l.id, l])), [levels]);
@@ -124,22 +132,32 @@ export function useSchoolLedger() {
     return map;
   }, [payments]);
 
+  const writtenOffByCharge = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const w of writeOffs) {
+      map.set(w.charge_id, (map.get(w.charge_id) ?? 0) + w.amount);
+    }
+    return map;
+  }, [writeOffs]);
+
   const chargeBalances = useMemo<LedgerChargeRow[]>(() => {
     return charges.map((c) => {
       const paid = paidByCharge.get(c.id) ?? 0;
+      const writtenOff = writtenOffByCharge.get(c.id) ?? 0;
       const session = sessionMap.get(c.session_id);
       const term = termMap.get(c.term_id);
       return {
         ...c,
         paid,
-        balance: c.amount_expected - paid,
+        writtenOff,
+        balance: c.amount_expected - paid - writtenOff,
         termName: term?.name ?? '',
         sessionName: session?.name ?? '',
         classLevelName: levelMap.get(c.class_level_id)?.name ?? '',
         sortKey: `${session?.created_at ?? ''}__${term?.created_at ?? ''}`
       };
     });
-  }, [charges, paidByCharge, sessionMap, termMap, levelMap]);
+  }, [charges, paidByCharge, writtenOffByCharge, sessionMap, termMap, levelMap]);
 
   const enrolledStudents = useMemo(() => students.filter((s) => ENROLLED_STATUSES.has(s.status)), [students]);
 
@@ -157,6 +175,7 @@ export function useSchoolLedger() {
     currentTerm,
     charges,
     payments,
+    writeOffs,
     paidByCharge,
     chargeBalances
   };

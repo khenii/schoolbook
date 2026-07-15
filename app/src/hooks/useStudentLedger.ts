@@ -22,6 +22,15 @@ interface PaymentRow {
   created_at: string;
 }
 
+interface WriteOffRow {
+  id: string;
+  charge_id: string;
+  amount: number;
+  reason: string;
+  written_off_by: string | null;
+  created_at: string;
+}
+
 interface FeeItemRow {
   id: string;
   name: string;
@@ -45,6 +54,7 @@ export interface LedgerCharge extends ChargeRow {
   sessionName: string;
   termName: string;
   paid: number;
+  writtenOff: number;
   balance: number;
   sortKey: string;
 }
@@ -70,6 +80,10 @@ export function useStudentLedger(studentId: string) {
   const { data: feeItems } = useQuery<FeeItemRow>('SELECT id, name FROM fee_items');
   const { data: terms } = useQuery<TermRow>('SELECT id, name, is_current, created_at FROM terms');
   const { data: sessions } = useQuery<SessionRow>('SELECT id, name, created_at FROM sessions');
+  const { data: writeOffs } = useQuery<WriteOffRow>(
+    'SELECT wo.id, wo.charge_id, wo.amount, wo.reason, wo.written_off_by, wo.created_at FROM write_offs wo WHERE wo.student_id = ?',
+    [studentId]
+  );
 
   const paidByCharge = useMemo(() => {
     const map = new Map<string, number>();
@@ -79,22 +93,32 @@ export function useStudentLedger(studentId: string) {
     return map;
   }, [payments]);
 
+  const writtenOffByCharge = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const w of writeOffs) {
+      map.set(w.charge_id, (map.get(w.charge_id) ?? 0) + w.amount);
+    }
+    return map;
+  }, [writeOffs]);
+
   const ledgerCharges: LedgerCharge[] = useMemo(() => {
     return charges.map((c) => {
       const term = terms.find((t) => t.id === c.term_id);
       const session = sessions.find((s) => s.id === c.session_id);
       const paid = paidByCharge.get(c.id) ?? 0;
+      const writtenOff = writtenOffByCharge.get(c.id) ?? 0;
       return {
         ...c,
         feeItemName: feeItems.find((f) => f.id === c.fee_item_id)?.name ?? c.fee_item_id,
         sessionName: session?.name ?? '',
         termName: term?.name ?? '',
         paid,
-        balance: c.amount_expected - paid,
+        writtenOff,
+        balance: c.amount_expected - paid - writtenOff,
         sortKey: `${session?.created_at ?? ''}__${term?.created_at ?? ''}`
       };
     });
-  }, [charges, terms, sessions, feeItems, paidByCharge]);
+  }, [charges, terms, sessions, feeItems, paidByCharge, writtenOffByCharge]);
 
   const sortedByOldest = useMemo(
     () => [...ledgerCharges].sort((a, b) => a.sortKey.localeCompare(b.sortKey)),
@@ -118,6 +142,7 @@ export function useStudentLedger(studentId: string) {
     charges: ledgerCharges,
     outstandingOldestFirst: outstanding,
     payments,
+    writeOffs,
     currentTermId,
     currentTermBalance,
     arrears,

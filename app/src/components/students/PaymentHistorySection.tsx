@@ -1,9 +1,63 @@
 import { Fragment, useMemo, useState } from 'react';
-import { useQuery } from '@powersync/react';
+import { usePowerSync, useQuery } from '@powersync/react';
+import { useAppContext } from '../../lib/AppContext';
 import { useStudentLedger } from '../../hooks/useStudentLedger';
 
+type PaymentRow = ReturnType<typeof useStudentLedger>['payments'][number];
+
 export default function PaymentHistorySection({ studentId }: { studentId: string }) {
+  const db = usePowerSync();
+  const { account } = useAppContext();
   const { payments, charges } = useStudentLedger(studentId);
+
+  // A payment row can be voided at most once — reversals target the
+  // original payment's id via void_of_payment_id, never edit or delete it
+  // (payments has no UPDATE/DELETE policy at all). This tracks which
+  // originals already have a reversal, so the action doesn't offer to
+  // double-void something.
+  const voidedOriginalIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of payments) {
+      if (p.void_of_payment_id) ids.add(p.void_of_payment_id);
+    }
+    return ids;
+  }, [payments]);
+
+  const [voiding, setVoiding] = useState<string | null>(null);
+
+  async function handleVoid(r: PaymentRow) {
+    const reason = window.prompt(
+      `Reason for voiding this ₦${r.amount_paid.toLocaleString()} payment? This can't be undone — it adds a reversal entry, the original stays on record.`
+    );
+    if (!reason || !reason.trim()) return;
+    setVoiding(r.id);
+    try {
+      const now = new Date().toISOString();
+      await db.execute(
+        `INSERT INTO payments
+           (id, school_id, student_id, charge_id, amount_paid, date_paid, method, receipt_number, recorded_by,
+            household_transaction_id, void_of_payment_id, void_reason, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          crypto.randomUUID(),
+          account.school_id,
+          studentId,
+          r.charge_id,
+          -r.amount_paid,
+          now.slice(0, 10),
+          r.method,
+          r.receipt_number ? `VOID-${r.receipt_number}` : null,
+          account.id,
+          r.household_transaction_id,
+          r.id,
+          reason.trim(),
+          now
+        ]
+      );
+    } finally {
+      setVoiding(null);
+    }
+  }
 
   const chargeLabel = (chargeId: string) => {
     const c = charges.find((x) => x.id === chargeId);
@@ -102,6 +156,10 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
           <tbody>
             {groups.map((g) => {
               const siblingInfo = siblingByTxn.get(g.key);
+              const singleRow = g.rows.length === 1 ? g.rows[0] : null;
+              const singleRowIsVoid = !!singleRow?.void_of_payment_id;
+              const singleRowIsVoided = !!singleRow && voidedOriginalIds.has(singleRow.id);
+              const singleRowVoidable = !!singleRow && !singleRowIsVoid && !singleRowIsVoided && singleRow.amount_paid > 0;
               return (
               <Fragment key={g.key}>
                 <tr style={{ borderBottom: siblingInfo ? 'none' : '1px solid #eee', fontSize: 13 }}>
@@ -111,13 +169,25 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
                     {g.rows.length > 1 && (
                       <span style={{ color: '#888', fontWeight: 400 }}> ({g.rows.length} charges)</span>
                     )}
+                    {singleRowIsVoid && (
+                      <span style={{ color: 'crimson', fontWeight: 400 }} title={singleRow?.void_reason ?? ''}>
+                        {' '}
+                        (void)
+                      </span>
+                    )}
+                    {singleRowIsVoided && <span style={{ color: '#888', fontWeight: 400 }}> (voided)</span>}
                   </td>
                   <td style={{ padding: 6 }}>{g.method}</td>
                   <td style={{ padding: 6 }}>{g.receiptNumber ?? '—'}</td>
-                  <td style={{ padding: 6 }}>
+                  <td style={{ padding: 6, textAlign: 'right' }}>
                     {g.rows.length > 1 && (
                       <button onClick={() => toggle(g.key)} style={{ fontSize: 11 }}>
                         {expanded.has(g.key) ? 'Hide breakdown' : 'Show breakdown'}
+                      </button>
+                    )}
+                    {singleRow && singleRowVoidable && (
+                      <button onClick={() => handleVoid(singleRow)} disabled={voiding === singleRow.id} style={{ fontSize: 11 }}>
+                        {voiding === singleRow.id ? '…' : 'Void'}
                       </button>
                     )}
                   </td>
@@ -125,12 +195,40 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
                 {g.rows.length > 1 && expanded.has(g.key) && (
                   <tr>
                     <td colSpan={5} style={{ padding: '0 6px 8px 24px' }}>
-                      {g.rows.map((r) => (
-                        <div key={r.id} style={{ fontSize: 12, color: '#555', padding: '2px 0' }}>
-                          {chargeLabel(r.charge_id)} — ₦{r.amount_paid.toLocaleString()}
-                          {r.void_of_payment_id && <span style={{ color: 'crimson' }}> (void)</span>}
-                        </div>
-                      ))}
+                      {g.rows.map((r) => {
+                        const isVoid = !!r.void_of_payment_id;
+                        const isVoided = voidedOriginalIds.has(r.id);
+                        const voidable = !isVoid && !isVoided && r.amount_paid > 0;
+                        return (
+                          <div
+                            key={r.id}
+                            style={{
+                              fontSize: 12,
+                              color: '#555',
+                              padding: '2px 0',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8
+                            }}
+                          >
+                            <span style={{ flex: 1 }}>
+                              {chargeLabel(r.charge_id)} — ₦{r.amount_paid.toLocaleString()}
+                              {isVoid && (
+                                <span style={{ color: 'crimson' }} title={r.void_reason ?? ''}>
+                                  {' '}
+                                  (void)
+                                </span>
+                              )}
+                              {isVoided && <span style={{ color: '#888' }}> (voided)</span>}
+                            </span>
+                            {voidable && (
+                              <button onClick={() => handleVoid(r)} disabled={voiding === r.id} style={{ fontSize: 10.5 }}>
+                                {voiding === r.id ? '…' : 'Void'}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </td>
                   </tr>
                 )}
