@@ -15,6 +15,24 @@ interface FeeItemPricingRow {
   amount: number;
 }
 
+interface DiscountRow {
+  student_id: string;
+  fee_item_id: string;
+  type: 'percent' | 'fixed';
+  value: number;
+}
+
+// Standing discounts (spec: "applied at charge generation") only affect
+// charges generated from here on — they never rewrite an already-generated
+// charge, since charges are append-only. Adjusting an existing charge is
+// what write-offs are for. Clamped to zero: a discount can reduce a charge
+// to free, never negative.
+function applyDiscount(baseAmount: number, discount: DiscountRow | undefined): number {
+  if (!discount) return baseAmount;
+  const reduced = discount.type === 'percent' ? baseAmount * (1 - discount.value / 100) : baseAmount - discount.value;
+  return Math.max(0, reduced);
+}
+
 // Generates the charges a student owes on enrollment, per spec §3.1:
 // - all-students fee items always apply
 // - new-students-only fee items apply only if the student's status is 'new'
@@ -43,6 +61,13 @@ export async function generateChargesForNewStudent(
     [classLevelId]
   );
   const priceByFeeItem = new Map(pricingRows.map((p) => [p.fee_item_id, p.amount]));
+
+  const discountRows = await tx.getAll<DiscountRow>(
+    'SELECT student_id, fee_item_id, type, value FROM discounts WHERE student_id = ? AND active = 1',
+    [studentId]
+  );
+  const discountByFeeItem = new Map(discountRows.map((d) => [d.fee_item_id, d]));
+
   const now = new Date().toISOString();
   let count = 0;
 
@@ -51,7 +76,7 @@ export async function generateChargesForNewStudent(
       item.applies_to === 'all-students' || (item.applies_to === 'new-students-only' && isNewStudent);
     if (!applicable) continue;
 
-    const amount = priceByFeeItem.get(item.id) ?? 0;
+    const amount = applyDiscount(priceByFeeItem.get(item.id) ?? 0, discountByFeeItem.get(item.id));
     await tx.execute(
       `INSERT INTO charges
          (id, school_id, student_id, fee_item_id, session_id, term_id, class_level_id, amount_expected, created_at)
@@ -98,6 +123,12 @@ export async function generateRecurringChargesForTerm(
   const priceKey = (feeItemId: string, classLevelId: string) => `${feeItemId}:${classLevelId}`;
   const priceMap = new Map(pricingRows.map((p) => [priceKey(p.fee_item_id, p.class_level_id), p.amount]));
 
+  const discountRows = await tx.getAll<DiscountRow>(
+    'SELECT student_id, fee_item_id, type, value FROM discounts WHERE active = 1'
+  );
+  const discountKey = (studentId: string, feeItemId: string) => `${studentId}:${feeItemId}`;
+  const discountMap = new Map(discountRows.map((d) => [discountKey(d.student_id, d.fee_item_id), d]));
+
   const existingCharges = await tx.getAll<{ student_id: string; fee_item_id: string }>(
     'SELECT student_id, fee_item_id FROM charges WHERE term_id = ?',
     [termId]
@@ -121,7 +152,10 @@ export async function generateRecurringChargesForTerm(
         skipped++;
         continue;
       }
-      const amount = priceMap.get(priceKey(item.id, classLevelId)) ?? 0;
+      const amount = applyDiscount(
+        priceMap.get(priceKey(item.id, classLevelId)) ?? 0,
+        discountMap.get(discountKey(student.id, item.id))
+      );
       await tx.execute(
         `INSERT INTO charges
            (id, school_id, student_id, fee_item_id, session_id, term_id, class_level_id, amount_expected, created_at)

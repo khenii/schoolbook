@@ -9,6 +9,7 @@ import PaymentSection from '../components/students/PaymentSection';
 import ProfileSummary from '../components/students/ProfileSummary';
 import NotesSection from '../components/students/NotesSection';
 import PaymentHistorySection from '../components/students/PaymentHistorySection';
+import DiscountsSection from '../components/students/DiscountsSection';
 
 interface StudentRow {
   id: string;
@@ -224,6 +225,7 @@ export default function StudentDetailPage() {
       </details>
 
       <HouseholdSection student={student} />
+      <DiscountsSection studentId={student.id} />
 
       <h2 style={{ marginTop: '2rem' }}>All charges</h2>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
