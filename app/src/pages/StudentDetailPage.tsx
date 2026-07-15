@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePowerSync, useQuery } from '@powersync/react';
 import HouseholdSection from '../components/students/HouseholdSection';
+import PaymentSection from '../components/students/PaymentSection';
 
 interface StudentRow {
   id: string;
@@ -39,6 +40,11 @@ interface ChargeRow {
   amount_expected: number;
 }
 
+interface PaymentRow {
+  charge_id: string;
+  amount_paid: number;
+}
+
 interface FeeItemRow {
   id: string;
   name: string;
@@ -67,9 +73,15 @@ export default function StudentDetailPage() {
     'SELECT id, fee_item_id, session_id, term_id, amount_expected FROM charges WHERE student_id = ?',
     [id ?? '']
   );
+  const { data: payments } = useQuery<PaymentRow>('SELECT charge_id, amount_paid FROM payments WHERE student_id = ?', [
+    id ?? ''
+  ]);
   const { data: feeItems } = useQuery<FeeItemRow>('SELECT id, name FROM fee_items');
   const { data: terms } = useQuery<TermRow>('SELECT id, name FROM terms');
   const { data: sessions } = useQuery<SessionRow>('SELECT id, name FROM sessions');
+
+  const paidFor = (chargeId: string) =>
+    payments.filter((p) => p.charge_id === chargeId).reduce((sum, p) => sum + p.amount_paid, 0);
 
   const [form, setForm] = useState<Partial<StudentRow>>({});
   const [saving, setSaving] = useState(false);
@@ -182,10 +194,10 @@ export default function StudentDetailPage() {
 
       <HouseholdSection student={student} />
 
-      <h2 style={{ marginTop: '2rem' }}>Charges generated at enrollment</h2>
+      <h2 style={{ marginTop: '2rem' }}>Charges</h2>
       <p style={{ fontSize: 12, color: '#888' }}>
-        Balance, arrears, and payment history will show here properly once the full student profile (task #18) is
-        built — this is just a raw list to confirm charge generation worked.
+        Full arrears breakdown across past sessions comes with the full student profile (task #18) — this covers
+        this student's charges as generated so far.
       </p>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
@@ -193,29 +205,41 @@ export default function StudentDetailPage() {
             <th style={{ padding: 8 }}>Fee item</th>
             <th style={{ padding: 8 }}>Session</th>
             <th style={{ padding: 8 }}>Term</th>
-            <th style={{ padding: 8 }}>Amount expected</th>
+            <th style={{ padding: 8 }}>Expected</th>
+            <th style={{ padding: 8 }}>Paid</th>
+            <th style={{ padding: 8 }}>Balance</th>
           </tr>
         </thead>
         <tbody>
-          {charges.map((c) => (
-            <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: 8 }} title={`fee_item_id: ${c.fee_item_id}`}>
-                {feeItems.find((f) => f.id === c.fee_item_id)?.name ?? c.fee_item_id}
-              </td>
-              <td style={{ padding: 8 }}>{sessions.find((s) => s.id === c.session_id)?.name ?? c.session_id}</td>
-              <td style={{ padding: 8 }}>{terms.find((t) => t.id === c.term_id)?.name ?? c.term_id}</td>
-              <td style={{ padding: 8 }}>₦{c.amount_expected.toLocaleString()}</td>
-            </tr>
-          ))}
+          {charges.map((c) => {
+            const paid = paidFor(c.id);
+            const balance = c.amount_expected - paid;
+            return (
+              <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
+                <td style={{ padding: 8 }} title={`fee_item_id: ${c.fee_item_id}`}>
+                  {feeItems.find((f) => f.id === c.fee_item_id)?.name ?? c.fee_item_id}
+                </td>
+                <td style={{ padding: 8 }}>{sessions.find((s) => s.id === c.session_id)?.name ?? c.session_id}</td>
+                <td style={{ padding: 8 }}>{terms.find((t) => t.id === c.term_id)?.name ?? c.term_id}</td>
+                <td style={{ padding: 8 }}>₦{c.amount_expected.toLocaleString()}</td>
+                <td style={{ padding: 8 }}>₦{paid.toLocaleString()}</td>
+                <td style={{ padding: 8, color: balance > 0 ? 'crimson' : 'inherit' }}>
+                  ₦{balance.toLocaleString()}
+                </td>
+              </tr>
+            );
+          })}
           {charges.length === 0 && (
             <tr>
-              <td colSpan={4} style={{ padding: 8, color: '#888' }}>
+              <td colSpan={6} style={{ padding: 8, color: '#888' }}>
                 No charges.
               </td>
             </tr>
           )}
         </tbody>
       </table>
+
+      <PaymentSection studentId={student.id} />
     </div>
   );
 }
