@@ -1,52 +1,25 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import AppShell from '../components/AppShell';
 import { useReportsData } from '../hooks/useReportsData';
 import { exportToCSV } from '../lib/csv';
 
 type Tab = 'defaulters' | 'arrears' | 'collections';
 
-const cardStyle: React.CSSProperties = {
-  background: 'white',
-  border: '1px solid #e2e8f0',
-  borderRadius: 10,
-  padding: '14px 16px',
-  flex: 1
-};
+function initials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+}
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 10.5,
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  color: '#64748b',
-  marginBottom: 6
-};
-
-const tableWrapStyle: React.CSSProperties = {
-  background: 'white',
-  border: '1px solid #e2e8f0',
-  borderRadius: 10,
-  overflow: 'hidden'
-};
-
-const rowStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  padding: '10px 16px',
-  borderBottom: '1px solid #eee',
-  fontSize: 12.5
-};
-
-const headRowStyle: React.CSSProperties = {
-  ...rowStyle,
-  background: '#f8fafc',
-  fontSize: 10.5,
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  color: '#64748b',
-  fontWeight: 600
-};
-
+// School-wide "Reports" — Defaulters / Arrears / Collections summary tabs,
+// matching 08-reports.html. All the underlying numbers already came from
+// useReportsData (built earlier from the same charge-balance source the
+// dashboard uses); this task is purely visual.
 export default function ReportsPage() {
   const { currentTerm, levels, defaulters, defaulterStats, arrears, arrearsStats, collections, collectionsStats } =
     useReportsData();
@@ -92,58 +65,52 @@ export default function ReportsPage() {
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.5rem 1rem 4rem' }}>
-      <p>
-        <Link to="/">← Back to dashboard</Link>
-      </p>
-      <h1 style={{ marginBottom: 2 }}>Reports</h1>
-      <p style={{ color: '#64748b', margin: 0 }}>
-        Who owes what, where old debt is still sitting, and how collections are trending by class.
-        {currentTerm ? ` Current term: ${currentTerm.name}.` : ' No current term is set — see Settings → Sessions.'}
-      </p>
+    <AppShell title="Reports" pageClass="page-reports">
+      <div className="page-head">
+        <div className="eyebrow">Records</div>
+        <h2>School-wide reports</h2>
+        <p>
+          Who owes what, where old debt is still sitting, and how collections are trending by class.
+          {currentTerm ? ` Current term: ${currentTerm.name}.` : ' No current term is set — see Settings → Sessions.'}
+        </p>
+      </div>
 
-      <div style={{ display: 'flex', gap: 8, margin: '1.25rem 0 1.25rem' }}>
-        <button onClick={() => setTab('defaulters')} disabled={tab === 'defaulters'}>
+      <div className="tabs">
+        <div className={`tab${tab === 'defaulters' ? ' active' : ''}`} onClick={() => setTab('defaulters')}>
           Defaulters
-        </button>
-        <button onClick={() => setTab('arrears')} disabled={tab === 'arrears'}>
+        </div>
+        <div className={`tab${tab === 'arrears' ? ' active' : ''}`} onClick={() => setTab('arrears')}>
           Arrears
-        </button>
-        <button onClick={() => setTab('collections')} disabled={tab === 'collections'}>
+        </div>
+        <div className={`tab${tab === 'collections' ? ' active' : ''}`} onClick={() => setTab('collections')}>
           Collections summary
-        </button>
+        </div>
       </div>
 
       {tab === 'defaulters' && (
-        <div>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-            <div style={cardStyle}>
-              <div style={labelStyle}>Total outstanding</div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: '#B84C3E' }}>
-                ₦{defaulterStats.totalOutstanding.toLocaleString()}
-              </div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+        <div className="view active">
+          <div className="stat-row">
+            <div className="stat-card rust">
+              <div className="label">Total outstanding</div>
+              <div className="value">₦{defaulterStats.totalOutstanding.toLocaleString()}</div>
+              <div className="sub">
                 {defaulters.length} student{defaulters.length === 1 ? '' : 's'} with a current-term balance
               </div>
             </div>
-            <div style={cardStyle}>
-              <div style={labelStyle}>Average balance</div>
-              <div style={{ fontSize: 20, fontWeight: 600 }}>
-                ₦{Math.round(defaulterStats.avgBalance).toLocaleString()}
-              </div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>per defaulting student</div>
+            <div className="stat-card">
+              <div className="label">Average balance</div>
+              <div className="value">₦{Math.round(defaulterStats.avgBalance).toLocaleString()}</div>
+              <div className="sub">per defaulting student</div>
             </div>
-            <div style={cardStyle}>
-              <div style={labelStyle}>Also carrying arrears</div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: '#b8860b' }}>
-                {defaulterStats.alsoCarryingArrears}
-              </div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>owe from prior terms too</div>
+            <div className="stat-card gold">
+              <div className="label">Also carrying arrears</div>
+              <div className="value">{defaulterStats.alsoCarryingArrears}</div>
+              <div className="sub">of these students owe from prior sessions too</div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
+          <div className="filter-bar">
+            <div className="filter-left">
               <select value={defLevel} onChange={(e) => setDefLevel(e.target.value)}>
                 <option value="all">All classes</option>
                 {levels.map((l) => (
@@ -157,47 +124,39 @@ export default function ReportsPage() {
                 <option value="asc">Lowest balance first</option>
               </select>
             </div>
-            <button onClick={handleExportDefaulters}>Export list</button>
+            <button className="btn-ghost" onClick={handleExportDefaulters} disabled={filteredDefaulters.length === 0}>
+              Export list
+            </button>
           </div>
 
-          <div style={tableWrapStyle}>
-            <div style={headRowStyle}>
-              <div style={{ flex: 1.6 }}>Student</div>
-              <div style={{ flex: 1 }}>Class</div>
-              <div style={{ flex: 1, textAlign: 'right' }}>Balance owed</div>
-              <div style={{ flex: 0.6, textAlign: 'right' }} />
+          <div className="table-wrap">
+            <div className="t-row head">
+              <div className="col-avatar" />
+              <div className="col-student">Student</div>
+              <div className="col-source">Class</div>
+              <div className="col-amt">Balance owed</div>
+              <div className="col-action" />
             </div>
             {filteredDefaulters.length === 0 ? (
-              <div style={{ padding: 16, color: '#64748b', fontSize: 13 }}>No defaulters in this view.</div>
+              <div className="empty-note">No defaulters in this view.</div>
             ) : (
               filteredDefaulters.map((d) => (
-                <div key={d.studentId} style={rowStyle}>
-                  <div style={{ flex: 1.6 }}>
-                    <div style={{ fontWeight: 600 }}>
+                <div className="t-row" key={d.studentId}>
+                  <div className="col-avatar">
+                    <div className="avatar">{initials(d.name)}</div>
+                  </div>
+                  <div className="col-student">
+                    <div className="n">
                       {d.name}
-                      {d.hasArrears && (
-                        <span
-                          style={{
-                            fontSize: 9.5,
-                            fontWeight: 700,
-                            color: '#b8860b',
-                            background: '#fdf1da',
-                            padding: '2px 6px',
-                            borderRadius: 5,
-                            marginLeft: 6
-                          }}
-                        >
-                          ARREARS
-                        </span>
-                      )}
+                      {d.hasArrears && <span className="flag">ARREARS</span>}
                     </div>
                   </div>
-                  <div style={{ flex: 1 }}>{d.classLabel}</div>
-                  <div style={{ flex: 1, textAlign: 'right', fontWeight: 700, color: '#B84C3E' }}>
-                    ₦{d.amountOwed.toLocaleString()}
+                  <div className="col-source">
+                    <div className="t">{d.classLabel}</div>
                   </div>
-                  <div style={{ flex: 0.6, textAlign: 'right' }}>
-                    <Link to={`/students/${d.studentId}`} style={{ fontSize: 11.5 }}>
+                  <div className="col-amt rust">₦{d.amountOwed.toLocaleString()}</div>
+                  <div className="col-action">
+                    <Link className="view-link" to={`/students/${d.studentId}`}>
                       View →
                     </Link>
                   </div>
@@ -209,61 +168,68 @@ export default function ReportsPage() {
       )}
 
       {tab === 'arrears' && (
-        <div>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-            <div style={cardStyle}>
-              <div style={labelStyle}>Total arrears carried</div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: '#b8860b' }}>
-                ₦{arrearsStats.totalArrears.toLocaleString()}
-              </div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                across {arrearsStats.studentCount} student{arrearsStats.studentCount === 1 ? '' : 's'}, prior terms
+        <div className="view active">
+          <div className="stat-row">
+            <div className="stat-card gold">
+              <div className="label">Total arrears carried</div>
+              <div className="value">₦{arrearsStats.totalArrears.toLocaleString()}</div>
+              <div className="sub">
+                across {arrearsStats.studentCount} student{arrearsStats.studentCount === 1 ? '' : 's'}, from prior
+                sessions
               </div>
             </div>
-            <div style={cardStyle}>
-              <div style={labelStyle}>Oldest unresolved</div>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>{arrearsStats.oldestUnresolvedLabel ?? '—'}</div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>still unpaid</div>
+            <div className="stat-card">
+              <div className="label">Oldest unresolved</div>
+              <div className="value" style={{ fontSize: 18 }}>
+                {arrearsStats.oldestUnresolvedLabel ?? '—'}
+              </div>
+              <div className="sub">still unpaid</div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-            <select value={arrLevel} onChange={(e) => setArrLevel(e.target.value)}>
-              <option value="all">All current classes</option>
-              {levels.map((l) => (
-                <option key={l.id} value={l.name}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-            <button onClick={handleExportArrears}>Export list</button>
+          <div className="filter-bar">
+            <div className="filter-left">
+              <select value={arrLevel} onChange={(e) => setArrLevel(e.target.value)}>
+                <option value="all">All current classes</option>
+                {levels.map((l) => (
+                  <option key={l.id} value={l.name}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button className="btn-ghost" onClick={handleExportArrears} disabled={filteredArrears.length === 0}>
+              Export list
+            </button>
           </div>
 
-          <div style={tableWrapStyle}>
-            <div style={headRowStyle}>
-              <div style={{ flex: 1.6 }}>Student (now)</div>
-              <div style={{ flex: 1.4 }}>Arrears from</div>
-              <div style={{ flex: 1, textAlign: 'right' }}>Amount owed</div>
-              <div style={{ flex: 0.6, textAlign: 'right' }} />
+          <div className="table-wrap">
+            <div className="t-row head">
+              <div className="col-avatar" />
+              <div className="col-student">Student (now)</div>
+              <div className="col-source">Arrears from</div>
+              <div className="col-amt">Amount owed</div>
+              <div className="col-action" />
             </div>
             {filteredArrears.length === 0 ? (
-              <div style={{ padding: 16, color: '#64748b', fontSize: 13 }}>No arrears in this view.</div>
+              <div className="empty-note">No arrears in this view.</div>
             ) : (
               filteredArrears.map((a) => (
-                <div key={a.key} style={rowStyle}>
-                  <div style={{ flex: 1.6 }}>
-                    <div style={{ fontWeight: 600 }}>{a.name}</div>
-                    <div style={{ fontSize: 11, color: '#64748b' }}>{a.currentClassLabel}</div>
+                <div className="t-row" key={a.key}>
+                  <div className="col-avatar">
+                    <div className="avatar">{initials(a.name)}</div>
                   </div>
-                  <div style={{ flex: 1.4 }}>
-                    <div>{a.fromClassLevelName}</div>
-                    <div style={{ fontSize: 11, color: '#64748b' }}>{a.fromTermLabel}</div>
+                  <div className="col-student">
+                    <div className="n">{a.name}</div>
+                    <div className="c">{a.currentClassLabel}</div>
                   </div>
-                  <div style={{ flex: 1, textAlign: 'right', fontWeight: 700, color: '#b8860b' }}>
-                    ₦{a.amountOwed.toLocaleString()}
+                  <div className="col-source">
+                    <div className="t">{a.fromClassLevelName}</div>
+                    <div className="s">{a.fromTermLabel}</div>
                   </div>
-                  <div style={{ flex: 0.6, textAlign: 'right' }}>
-                    <Link to={`/students/${a.studentId}`} style={{ fontSize: 11.5 }}>
+                  <div className="col-amt gold">₦{a.amountOwed.toLocaleString()}</div>
+                  <div className="col-action">
+                    <Link className="view-link" to={`/students/${a.studentId}`}>
                       View →
                     </Link>
                   </div>
@@ -275,75 +241,56 @@ export default function ReportsPage() {
       )}
 
       {tab === 'collections' && (
-        <div>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-            <div style={cardStyle}>
-              <div style={labelStyle}>Expected this term</div>
-              <div style={{ fontSize: 20, fontWeight: 600 }}>₦{collectionsStats.expected.toLocaleString()}</div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>across all class levels</div>
+        <div className="view active">
+          <div className="stat-row">
+            <div className="stat-card">
+              <div className="label">Expected this term</div>
+              <div className="value">₦{collectionsStats.expected.toLocaleString()}</div>
+              <div className="sub">across all class levels</div>
             </div>
-            <div style={cardStyle}>
-              <div style={labelStyle}>Collected so far</div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: '#3A7D5C' }}>
-                ₦{collectionsStats.collected.toLocaleString()}
-              </div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                {collectionsStats.collectedPct ?? 0}% of expected
-              </div>
+            <div className="stat-card">
+              <div className="label">Collected so far</div>
+              <div className="value">₦{collectionsStats.collected.toLocaleString()}</div>
+              <div className="sub">{collectionsStats.collectedPct ?? 0}% of expected</div>
             </div>
-            <div style={cardStyle}>
-              <div style={labelStyle}>Remaining</div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: '#B84C3E' }}>
-                ₦{collectionsStats.remaining.toLocaleString()}
-              </div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+            <div className="stat-card rust">
+              <div className="label">Remaining</div>
+              <div className="value">₦{collectionsStats.remaining.toLocaleString()}</div>
+              <div className="sub">
                 {collectionsStats.collectedPct !== null ? 100 - collectionsStats.collectedPct : 0}% still outstanding
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-            <button onClick={handleExportCollections} disabled={collections.length === 0}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button className="btn-ghost" onClick={handleExportCollections} disabled={collections.length === 0}>
               Export list
             </button>
           </div>
 
-          <div style={tableWrapStyle}>
-            <div style={headRowStyle}>
+          <div className="table-wrap">
+            <div className="t-row head" style={{ padding: '9px 16px' }}>
               <div style={{ flex: 1.1 }}>Class</div>
               <div style={{ flex: 2 }}>Collection rate</div>
               <div style={{ width: 110, textAlign: 'right' }}>Outstanding</div>
             </div>
             {collections.length === 0 ? (
-              <div style={{ padding: 16, color: '#64748b', fontSize: 13 }}>No charges for the current term yet.</div>
+              <div className="empty-note">No charges for the current term yet.</div>
             ) : (
               collections.map((c) => (
-                <div key={c.classLevelId} style={rowStyle}>
-                  <div style={{ flex: 1.1, fontWeight: 600 }}>{c.name}</div>
-                  <div style={{ flex: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ flex: 1, height: 7, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          height: '100%',
-                          width: `${c.pct ?? 0}%`,
-                          background: '#3A7D5C',
-                          borderRadius: 4
-                        }}
-                      />
-                    </div>
-                    <div style={{ width: 34, textAlign: 'right', color: '#64748b', fontSize: 11 }}>
-                      {c.pct ?? '—'}%
-                    </div>
+                <div className="class-row" key={c.classLevelId}>
+                  <div className="lvl">{c.name}</div>
+                  <div className="bar-wrap">
+                    <div className="bar" style={{ width: `${c.pct ?? 0}%` }} />
                   </div>
-                  <div style={{ width: 110, textAlign: 'right', color: '#334155' }}>
-                    ₦{c.outstanding.toLocaleString()}
-                  </div>
+                  <div className="pct">{c.pct ?? '—'}%</div>
+                  <div className="amt">₦{c.outstanding.toLocaleString()}</div>
                 </div>
               ))
             )}
           </div>
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }
