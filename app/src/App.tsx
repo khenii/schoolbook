@@ -10,6 +10,7 @@ import { AppContextProvider } from './lib/AppContext';
 import AuthScreen from './components/AuthScreen';
 import SchoolSetupForm from './components/SchoolSetupForm';
 import ClassLevelSetup from './components/ClassLevelSetup';
+import OnboardingSuccess from './components/OnboardingSuccess';
 import DashboardPage from './pages/DashboardPage';
 import ReportsPage from './pages/ReportsPage';
 import ClassRegisterPage from './pages/ClassRegisterPage';
@@ -26,7 +27,8 @@ type AppState =
   | { step: 'loading' }
   | { step: 'auth' }
   | { step: 'school-setup' }
-  | { step: 'class-levels'; schoolId: string }
+  | { step: 'class-levels'; schoolId: string; schoolName: string }
+  | { step: 'done'; schoolName: string; levelCount: number }
   | { step: 'ready'; session: Session; account: Account };
 
 function Shell() {
@@ -70,12 +72,24 @@ function Shell() {
     case 'auth':
       return <AuthScreen />;
     case 'school-setup':
-      return <SchoolSetupForm onComplete={(schoolId) => setState({ step: 'class-levels', schoolId })} />;
+      return (
+        <SchoolSetupForm
+          onComplete={(schoolId, schoolName) => setState({ step: 'class-levels', schoolId, schoolName })}
+        />
+      );
     case 'class-levels':
       return (
         <ClassLevelSetup
           schoolId={state.schoolId}
-          onComplete={() => {
+          onComplete={(levelCount) => setState({ step: 'done', schoolName: state.schoolName, levelCount })}
+        />
+      );
+    case 'done':
+      return (
+        <OnboardingSuccess
+          schoolName={state.schoolName}
+          levelCount={state.levelCount}
+          onContinue={() => {
             supabase.auth.getSession().then(async ({ data }) => {
               if (!data.session) return;
               const account = await getMyAccount(data.session.user.id);

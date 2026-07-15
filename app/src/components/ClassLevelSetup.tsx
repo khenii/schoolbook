@@ -1,47 +1,64 @@
 import { useState } from 'react';
 import { usePowerSync } from '@powersync/react';
 import { DEFAULT_CLASS_LEVELS } from '../lib/defaultClassLevels';
+import OnboardingLayout from './OnboardingLayout';
+import StepTrack from './onboarding/StepTrack';
 
+interface LevelDraft {
+  name: string;
+  order: number;
+  checked: boolean;
+}
+
+// Step 3 — "Confirm your class levels" from 01-onboarding.html, including
+// the mockup's ability to add a custom level right here (the previous
+// version of this screen only let you untick defaults, no custom-add —
+// restored to match the mockup, since it's a real and easy win).
 export default function ClassLevelSetup({
   schoolId,
   onComplete
 }: {
   schoolId: string;
-  onComplete: () => void;
+  onComplete: (levelCount: number) => void;
 }) {
   const db = usePowerSync();
-  const [selected, setSelected] = useState<Set<string>>(new Set(DEFAULT_CLASS_LEVELS));
+  const [levels, setLevels] = useState<LevelDraft[]>(
+    DEFAULT_CLASS_LEVELS.map((name, i) => ({ name, order: i + 1, checked: true }))
+  );
+  const [newLevelName, setNewLevelName] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function toggle(name: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) {
-        next.delete(name);
-      } else {
-        next.add(name);
-      }
-      return next;
-    });
+  function toggle(idx: number) {
+    setLevels((prev) => prev.map((l, i) => (i === idx ? { ...l, checked: !l.checked } : l)));
   }
 
+  function addLevel() {
+    const name = newLevelName.trim();
+    if (!name) return;
+    setLevels((prev) => [...prev, { name, order: prev.length + 1, checked: true }]);
+    setNewLevelName('');
+  }
+
+  const checkedCount = levels.filter((l) => l.checked).length;
+
   async function handleContinue() {
+    if (checkedCount === 0) return;
     setSaving(true);
     setError(null);
     try {
-      const chosen = DEFAULT_CLASS_LEVELS.filter((name) => selected.has(name));
+      const chosen = levels.filter((l) => l.checked);
       await db.writeTransaction(async (tx) => {
         for (let i = 0; i < chosen.length; i++) {
           const id = crypto.randomUUID();
           const now = new Date().toISOString();
           await tx.execute(
             'INSERT INTO class_levels (id, school_id, name, sort_order, created_at) VALUES (?, ?, ?, ?, ?)',
-            [id, schoolId, chosen[i], i, now]
+            [id, schoolId, chosen[i].name, i, now]
           );
         }
       });
-      onComplete();
+      onComplete(chosen.length);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -50,22 +67,43 @@ export default function ClassLevelSetup({
   }
 
   return (
-    <div style={{ maxWidth: 480, margin: '4rem auto' }}>
-      <h1>Which class levels does your school run?</h1>
-      <p>You can add custom levels, rename, or reorder these later in Settings.</p>
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {DEFAULT_CLASS_LEVELS.map((name) => (
-          <li key={name} style={{ padding: '0.25rem 0' }}>
-            <label>
-              <input type="checkbox" checked={selected.has(name)} onChange={() => toggle(name)} /> {name}
-            </label>
-          </li>
+    <OnboardingLayout>
+      <StepTrack current={3} />
+      <h2 className="form-title">Confirm your class levels</h2>
+      <div className="level-note">
+        We've pre-filled the standard Nigerian structure. Untick anything you don't run, or add a custom level below
+        — you can always change this later in Settings.
+      </div>
+
+      <div className="level-list">
+        {levels.map((lvl, idx) => (
+          <div className={`level-item${lvl.checked ? '' : ' excluded'}`} key={`${lvl.name}-${idx}`}>
+            <div className={`level-check${lvl.checked ? ' checked' : ''}`} onClick={() => toggle(idx)} />
+            <div className="level-name">{lvl.name}</div>
+            <div className="level-order">{String(lvl.order).padStart(2, '0')}</div>
+          </div>
         ))}
-      </ul>
-      <button onClick={handleContinue} disabled={saving}>
-        {saving ? 'Saving…' : 'Continue to dashboard'}
+      </div>
+
+      <div className="add-level-row">
+        <input
+          type="text"
+          placeholder="Add a custom class level…"
+          value={newLevelName}
+          onChange={(e) => setNewLevelName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && addLevel()}
+        />
+        <button onClick={addLevel}>Add</button>
+      </div>
+
+      <button className="btn-primary" onClick={handleContinue} disabled={saving || checkedCount === 0}>
+        {saving ? 'Saving…' : 'Continue'}
       </button>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-    </div>
+      {error && (
+        <p className="field-error" style={{ display: 'block' }}>
+          {error}
+        </p>
+      )}
+    </OnboardingLayout>
   );
 }

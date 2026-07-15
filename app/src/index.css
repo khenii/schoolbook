@@ -198,6 +198,10 @@ body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink)
    Payments/Reports/Audit Log to page-settings too. */
 .page-settings .btn-ghost{ padding:9px 15px; background:var(--paper-card); color:var(--slate); border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; }
 
+/* Same gap on 10-class-register.html — no .btn-ghost in that mockup either,
+   but the real page needs an Export CSV action next to the selectors. */
+.page-register .btn-ghost{ padding:9px 15px; background:var(--paper-card); color:var(--slate); border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; }
+
 .page-students .filter-bar, .page-payments .filter-bar, .page-auditlog .filter-bar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
 
 .page-reports .filter-bar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
@@ -1463,6 +1467,12 @@ h2.form-title{
    in a single .app-shell div (also carrying the page-scoping class used
    throughout this file), so that's what carries the flex row now. */
 .app-shell{ display:flex; min-height:100vh; }
+
+/* Same story as .app-shell — 01-onboarding.html's body carried the flex
+   row directly; the pre-login screens (auth/school-setup/class-levels)
+   aren't wrapped in AppShell, so OnboardingLayout.tsx supplies its own
+   flex row here instead. */
+.onboarding-shell{ display:flex; min-height:100vh; }
 
 /* Fallback base styling for pages not yet migrated to the design
    system's .field/.btn-primary/etc. components (tracked as separate
