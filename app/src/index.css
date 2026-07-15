@@ -1464,3 +1464,22 @@ form { max-width: 320px; margin: 4rem auto; display: flex; flex-direction: colum
 input, button { padding: 0.6rem 0.8rem; font-size: 1rem; border-radius: 6px; border: 1px solid var(--slate-soft, var(--slate)); font-family: inherit; }
 button { background: var(--ink); color: white; border: none; cursor: pointer; }
 button:hover { background: var(--slate); }
+
+/* Receipt page (React-specific — the mockup's .receipt-modal was designed
+   to float inside a .receipt-overlay; here it's the whole page, printable
+   and linkable on its own /receipt/:txnId route). */
+.receipt-page{ min-height:100vh; background:var(--paper); padding:32px 20px 60px; }
+.receipt-page-empty{ max-width:480px; margin:4rem auto; padding:0 1rem; text-align:center; color:var(--slate-soft); }
+.receipt-page-actions{ max-width:400px; margin:0 auto 18px; display:flex; justify-content:space-between; align-items:center; }
+.receipt-page-actions a{ color:var(--slate); font-size:13px; text-decoration:none; }
+.receipt-page-actions button{ flex:none; padding:9px 18px; }
+.receipt-standalone{ margin:0 auto; box-shadow:0 8px 30px rgba(22,35,61,0.08); border:1px solid var(--line); }
+.receipt-void-note{ font-size:11px; color:var(--rust); text-align:center; margin:0 32px 12px; }
+.receipt-student-block{ margin-bottom:6px; }
+
+@media print {
+  .no-print{ display:none !important; }
+  body{ background:#fff !important; }
+  .receipt-page{ padding:0; background:#fff; }
+  .receipt-standalone{ box-shadow:none; border:none; margin:0 auto; }
+}

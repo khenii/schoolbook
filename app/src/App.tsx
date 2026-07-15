@@ -13,7 +13,7 @@ import ClassLevelSetup from './components/ClassLevelSetup';
 import DashboardPage from './pages/DashboardPage';
 import ReportsPage from './pages/ReportsPage';
 import ClassRegisterPage from './pages/ClassRegisterPage';
-import HouseholdPaymentPage from './pages/HouseholdPaymentPage';
+import PaymentsPage from './pages/PaymentsPage';
 import ReceiptPage from './pages/ReceiptPage';
 import PromotionPage from './pages/PromotionPage';
 import AuditLogPage from './pages/AuditLogPage';
@@ -92,7 +92,8 @@ function Shell() {
               <Route path="/" element={<DashboardPage syncStatus={syncStatus} />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/class-register" element={<ClassRegisterPage />} />
-              <Route path="/household-payment" element={<HouseholdPaymentPage />} />
+              <Route path="/payments" element={<PaymentsPage />} />
+              <Route path="/household-payment" element={<Navigate to="/payments" replace />} />
               <Route path="/receipt/:txnId" element={<ReceiptPage />} />
               <Route path="/promotion" element={<PromotionPage />} />
               <Route path="/audit-log" element={<AuditLogPage />} />

@@ -15,9 +15,15 @@ const methodLabel: Record<string, string> = {
   other: 'Other'
 };
 
+// A real, bookmarkable/printable route rather than the mockup's JS-only
+// receipt modal — a deliberate deviation: receipts need to survive a page
+// reload and be linkable from the payment log, the household reconciliation
+// list, and a student's payment history, which a modal can't do. Visual
+// language (brand block, mono receipt rows, print rules) still matches
+// 07-payments.html's .receipt-modal as closely as a full page allows.
 export default function ReceiptPage() {
   const { txnId } = useParams<{ txnId: string }>();
-  const { payments, chargeBalances, studentMap } = useSchoolLedger();
+  const { payments, chargeBalances, studentMap, classLabel } = useSchoolLedger();
   const { data: schoolRows } = useQuery<SchoolRow>('SELECT name, address FROM schools LIMIT 1');
   const school = schoolRows[0];
 
@@ -35,115 +41,92 @@ export default function ReceiptPage() {
   const hasVoid = rows.some((r) => r.void_of_payment_id);
 
   const byStudent = useMemo(() => {
-    const map = new Map<string, { name: string; rows: typeof rows }>();
+    const map = new Map<string, { name: string; classLabel: string; rows: typeof rows }>();
     for (const r of rows) {
       const s = studentMap.get(r.student_id);
-      const name = s ? `${s.last_name} ${s.first_name}` : 'Unknown student';
-      const existing = map.get(r.student_id) ?? { name, rows: [] };
+      const name = s ? `${s.first_name} ${s.last_name}` : 'Unknown student';
+      const existing = map.get(r.student_id) ?? { name, classLabel: s ? classLabel(s.current_class_arm_id) : '', rows: [] };
       existing.rows.push(r);
       map.set(r.student_id, existing);
     }
     return Array.from(map.values());
-  }, [rows, studentMap]);
+  }, [rows, studentMap, classLabel]);
 
   if (!txnId || rows.length === 0) {
     return (
-      <div style={{ maxWidth: 500, margin: '3rem auto', padding: '0 1rem' }}>
+      <div className="receipt-page-empty">
         <p>
-          <Link to="/">← Back to dashboard</Link>
+          <Link to="/payments">← Back to payments</Link>
         </p>
-        <p style={{ color: '#888' }}>No payment found for this receipt.</p>
+        <p className="muted">No payment found for this receipt.</p>
       </div>
     );
   }
 
   return (
-    <div>
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          body { background: white !important; }
-        }
-      `}</style>
-
-      <div className="no-print" style={{ maxWidth: 600, margin: '1.5rem auto 0', padding: '0 1rem' }}>
-        <p>
-          <Link to="/">← Back to dashboard</Link>
-        </p>
-        <button onClick={() => window.print()}>Print / Save as PDF</button>
+    <div className="receipt-page">
+      <div className="receipt-page-actions no-print">
+        <Link to="/payments">← Back to payments</Link>
+        <button className="btn-primary" onClick={() => window.print()}>
+          Print receipt
+        </button>
       </div>
 
-      <div
-        style={{
-          maxWidth: 600,
-          margin: '1.5rem auto 3rem',
-          padding: '2rem',
-          border: '1px solid #ddd',
-          fontFamily: 'Georgia, serif',
-          color: '#16233D'
-        }}
-      >
-        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <h1 style={{ margin: 0, fontSize: 22 }}>{school?.name ?? 'Receipt'}</h1>
-          {school?.address && <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#555' }}>{school.address}</p>}
+      <div className="receipt-modal receipt-standalone" id="receiptPrintArea">
+        <div className="receipt-brand">
+          <h2>{school?.name ?? 'Schoolbook'}</h2>
+          {school?.address && <p>{school.address}</p>}
         </div>
+        <div className="receipt-title">Payment receipt</div>
 
-        <hr style={{ border: 'none', borderTop: '1px solid #ddd', margin: '16px 0' }} />
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 16 }}>
-          <div>
-            <div>
-              <strong>Receipt #:</strong> {receiptNumber ?? '—'}
-            </div>
-            <div>
-              <strong>Date:</strong> {date}
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div>
-              <strong>Method:</strong> {methodLabel[method ?? ''] ?? method}
-            </div>
-          </div>
+        <div className="receipt-row">
+          <span className="rl">Receipt No.</span>
+          <span className="rv">{receiptNumber ?? '—'}</span>
+        </div>
+        <div className="receipt-row">
+          <span className="rl">Date</span>
+          <span className="rv">{date}</span>
+        </div>
+        <div className="receipt-row">
+          <span className="rl">Method</span>
+          <span className="rv">{methodLabel[method ?? ''] ?? method}</span>
         </div>
 
         {byStudent.map((student) => (
-          <div key={student.name} style={{ marginBottom: 14 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{student.name}</div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <tbody>
-                {student.rows.map((r) => {
-                  const charge = chargeMap.get(r.charge_id);
-                  return (
-                    <tr key={r.id} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '4px 0' }}>
-                        {charge ? `${charge.feeItemName} — ${charge.sessionName} ${charge.termName}` : r.charge_id}
-                        {r.void_of_payment_id && <span style={{ color: 'crimson' }}> (VOID{r.void_reason ? `: ${r.void_reason}` : ''})</span>}
-                      </td>
-                      <td style={{ padding: '4px 0', textAlign: 'right' }}>₦{r.amount_paid.toLocaleString()}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="receipt-student-block" key={student.name}>
+            <div className="receipt-row" style={{ borderTop: '1px solid var(--line)', paddingTop: 10, marginTop: 6 }}>
+              <span className="rl" style={{ fontWeight: 700, color: 'var(--ink)' }}>
+                {student.name} {student.classLabel ? `· ${student.classLabel}` : ''}
+              </span>
+              <span />
+            </div>
+            {student.rows.map((r) => {
+              const charge = chargeMap.get(r.charge_id);
+              return (
+                <div className="receipt-row" key={r.id}>
+                  <span className="rl">
+                    {charge ? `${charge.feeItemName} — ${charge.sessionName} ${charge.termName}` : r.charge_id}
+                    {r.void_of_payment_id && <span style={{ color: 'var(--rust)' }}> (VOID{r.void_reason ? `: ${r.void_reason}` : ''})</span>}
+                  </span>
+                  <span className="rv">₦{r.amount_paid.toLocaleString()}</span>
+                </div>
+              );
+            })}
           </div>
         ))}
 
-        <hr style={{ border: 'none', borderTop: '2px solid #16233D', margin: '16px 0' }} />
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700 }}>
-          <span>Total</span>
-          <span>₦{total.toLocaleString()}</span>
+        <div className="receipt-amount">
+          <div className="ra-label">Total received</div>
+          <div className="ra-value">₦{total.toLocaleString()}</div>
         </div>
 
         {hasVoid && (
-          <p style={{ fontSize: 11.5, color: 'crimson', marginTop: 12 }}>
+          <p className="receipt-void-note">
             This transaction includes a voided entry — the total above already reflects the reversal.
           </p>
         )}
 
-        <p style={{ fontSize: 11, color: '#888', marginTop: 24, textAlign: 'center' }}>
-          Generated by Schoolbook — {new Date().toLocaleDateString()}
-        </p>
+        <div className="receipt-foot">Generated by Schoolbook — {new Date().toLocaleDateString()}</div>
       </div>
     </div>
   );

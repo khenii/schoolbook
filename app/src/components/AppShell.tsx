@@ -17,18 +17,15 @@ interface NavSection {
 }
 
 // Matches the sidebar in every mockup (01, 04–12) exactly — section
-// grouping, order, and icons. "Payments" (07-payments.html) has no
-// standalone route in the real app yet (payments are recorded from a
-// student's profile, or via Household Payment for split payments), so it
-// points at Household Payment for now. Import has no mockup — it's a
-// Phase 5 addition — but slots naturally under Configuration.
+// grouping, order, and icons. Import has no mockup — it's a Phase 5
+// addition — but slots naturally under Configuration.
 const NAV_SECTIONS: NavSection[] = [
   { label: 'Overview', items: [{ to: '/', icon: '◧', label: 'Dashboard' }] },
   {
     label: 'Records',
     items: [
       { to: '/students', icon: '☺', label: 'Students' },
-      { to: '/household-payment', icon: '✎', label: 'Payments' },
+      { to: '/payments', icon: '✎', label: 'Payments' },
       { to: '/class-register', icon: '▤', label: 'Class Register' },
       { to: '/promotion', icon: '↑', label: 'Promotion' },
       { to: '/reports', icon: '▦', label: 'Reports' }

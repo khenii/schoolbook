@@ -120,7 +120,11 @@ export default function HouseholdSection({ student }: { student: StudentSummary 
             <div style={{ fontSize: 11.5, color: 'var(--slate-soft)' }}>No other students linked yet.</div>
           )}
         </div>
-        <Link className="btn-ghost" to="/household-payment" style={{ textDecoration: 'none', display: 'inline-block' }}>
+        <Link
+          className="btn-ghost"
+          to={`/payments?household=${student.household_id}`}
+          style={{ textDecoration: 'none', display: 'inline-block' }}
+        >
           Pay for whole family →
         </Link>
       </div>

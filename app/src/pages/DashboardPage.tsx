@@ -100,8 +100,8 @@ export default function DashboardPage({ syncStatus }: { syncStatus: string }) {
         <Link className="qlink" to="/students">
           <div className="qi">☺</div>Search students
         </Link>
-        <Link className="qlink" to="/household-payment">
-          <div className="qi">₦</div>Record household payment
+        <Link className="qlink" to="/payments">
+          <div className="qi">₦</div>Record a payment
         </Link>
         <Link className="qlink" to="/settings?tab=fees">
           <div className="qi">₦</div>Edit fee items
