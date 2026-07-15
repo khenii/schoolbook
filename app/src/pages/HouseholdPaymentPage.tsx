@@ -516,7 +516,10 @@ export default function HouseholdPaymentPage() {
                             <button onClick={() => toggleTxn(t.txnId)} style={{ fontSize: 11 }}>
                               {expandedTxns.has(t.txnId) ? 'Hide breakdown' : 'Show breakdown'}
                             </button>
-                          )}
+                          )}{' '}
+                          <Link to={`/receipt/${t.txnId}`} style={{ fontSize: 11 }}>
+                            Receipt
+                          </Link>
                         </td>
                       </tr>
                       {t.children.length > 1 && expandedTxns.has(t.txnId) && (

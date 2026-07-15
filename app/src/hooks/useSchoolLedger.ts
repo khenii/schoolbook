@@ -65,7 +65,13 @@ export interface PaymentRow {
   receipt_number: string | null;
   household_transaction_id: string | null;
   void_of_payment_id: string | null;
+  void_reason: string | null;
   created_at: string;
+}
+
+interface FeeItemRow {
+  id: string;
+  name: string;
 }
 
 interface WriteOffRow {
@@ -81,6 +87,7 @@ export interface LedgerChargeRow extends ChargeRow {
   termName: string;
   sessionName: string;
   classLevelName: string;
+  feeItemName: string;
   sortKey: string; // session.created_at__term.created_at, for chronological ordering
 }
 
@@ -101,16 +108,18 @@ export function useSchoolLedger() {
   );
   const { data: payments } = useQuery<PaymentRow>(
     `SELECT id, charge_id, student_id, amount_paid, date_paid, method, receipt_number, household_transaction_id,
-            void_of_payment_id, created_at
+            void_of_payment_id, void_reason, created_at
      FROM payments ORDER BY created_at DESC`
   );
   const { data: writeOffs } = useQuery<WriteOffRow>('SELECT id, charge_id, amount FROM write_offs');
+  const { data: feeItems } = useQuery<FeeItemRow>('SELECT id, name FROM fee_items');
 
   const armMap = useMemo(() => new Map(arms.map((a) => [a.id, a])), [arms]);
   const levelMap = useMemo(() => new Map(levels.map((l) => [l.id, l])), [levels]);
   const sessionMap = useMemo(() => new Map(sessions.map((s) => [s.id, s])), [sessions]);
   const termMap = useMemo(() => new Map(terms.map((t) => [t.id, t])), [terms]);
   const studentMap = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
+  const feeItemMap = useMemo(() => new Map(feeItems.map((f) => [f.id, f])), [feeItems]);
 
   const classLabel = useMemo(() => {
     return (armId: string | null) => {
@@ -154,10 +163,11 @@ export function useSchoolLedger() {
         termName: term?.name ?? '',
         sessionName: session?.name ?? '',
         classLevelName: levelMap.get(c.class_level_id)?.name ?? '',
+        feeItemName: feeItemMap.get(c.fee_item_id)?.name ?? '',
         sortKey: `${session?.created_at ?? ''}__${term?.created_at ?? ''}`
       };
     });
-  }, [charges, paidByCharge, writtenOffByCharge, sessionMap, termMap, levelMap]);
+  }, [charges, paidByCharge, writtenOffByCharge, sessionMap, termMap, levelMap, feeItemMap]);
 
   const enrolledStudents = useMemo(() => students.filter((s) => ENROLLED_STATUSES.has(s.status)), [students]);
 

@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../../lib/AppContext';
 import { useStudentLedger } from '../../hooks/useStudentLedger';
@@ -189,7 +190,10 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
                       <button onClick={() => handleVoid(singleRow)} disabled={voiding === singleRow.id} style={{ fontSize: 11 }}>
                         {voiding === singleRow.id ? '…' : 'Void'}
                       </button>
-                    )}
+                    )}{' '}
+                    <Link to={`/receipt/${g.key}`} style={{ fontSize: 11 }}>
+                      Receipt
+                    </Link>
                   </td>
                 </tr>
                 {g.rows.length > 1 && expanded.has(g.key) && (
