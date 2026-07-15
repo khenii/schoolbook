@@ -2,8 +2,12 @@ import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePowerSync, useQuery } from '@powersync/react';
+import { useStudentLedger } from '../hooks/useStudentLedger';
 import HouseholdSection from '../components/students/HouseholdSection';
 import PaymentSection from '../components/students/PaymentSection';
+import ProfileSummary from '../components/students/ProfileSummary';
+import NotesSection from '../components/students/NotesSection';
+import PaymentHistorySection from '../components/students/PaymentHistorySection';
 
 interface StudentRow {
   id: string;
@@ -32,56 +36,17 @@ interface ClassLevelRow {
   name: string;
 }
 
-interface ChargeRow {
-  id: string;
-  fee_item_id: string;
-  session_id: string;
-  term_id: string;
-  amount_expected: number;
-}
-
-interface PaymentRow {
-  charge_id: string;
-  amount_paid: number;
-}
-
-interface FeeItemRow {
-  id: string;
-  name: string;
-}
-
-interface TermRow {
-  id: string;
-  name: string;
-}
-
-interface SessionRow {
-  id: string;
-  name: string;
-}
-
 export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const db = usePowerSync();
+  const studentId = id ?? '';
 
-  const { data: studentRows } = useQuery<StudentRow>('SELECT * FROM students WHERE id = ?', [id ?? '']);
+  const { data: studentRows } = useQuery<StudentRow>('SELECT * FROM students WHERE id = ?', [studentId]);
   const student = studentRows[0];
 
   const { data: arms } = useQuery<ClassArmRow>('SELECT id, class_level_id, name FROM class_arms');
   const { data: levels } = useQuery<ClassLevelRow>('SELECT id, name FROM class_levels');
-  const { data: charges } = useQuery<ChargeRow>(
-    'SELECT id, fee_item_id, session_id, term_id, amount_expected FROM charges WHERE student_id = ?',
-    [id ?? '']
-  );
-  const { data: payments } = useQuery<PaymentRow>('SELECT charge_id, amount_paid FROM payments WHERE student_id = ?', [
-    id ?? ''
-  ]);
-  const { data: feeItems } = useQuery<FeeItemRow>('SELECT id, name FROM fee_items');
-  const { data: terms } = useQuery<TermRow>('SELECT id, name FROM terms');
-  const { data: sessions } = useQuery<SessionRow>('SELECT id, name FROM sessions');
-
-  const paidFor = (chargeId: string) =>
-    payments.filter((p) => p.charge_id === chargeId).reduce((sum, p) => sum + p.amount_paid, 0);
+  const { charges } = useStudentLedger(studentId);
 
   const [form, setForm] = useState<Partial<StudentRow>>({});
   const [saving, setSaving] = useState(false);
@@ -93,7 +58,7 @@ export default function StudentDetailPage() {
 
   if (!student) {
     return (
-      <div style={{ maxWidth: 560, margin: '2rem auto', padding: '0 1rem' }}>
+      <div style={{ maxWidth: 640, margin: '2rem auto', padding: '0 1rem' }}>
         <p>
           <Link to="/students">← Back to students</Link>
         </p>
@@ -137,7 +102,7 @@ export default function StudentDetailPage() {
   }
 
   return (
-    <div style={{ maxWidth: 560, margin: '2rem auto', padding: '0 1rem' }}>
+    <div style={{ maxWidth: 640, margin: '2rem auto', padding: '0 1rem' }}>
       <p>
         <Link to="/students">← Back to students</Link>
       </p>
@@ -145,60 +110,62 @@ export default function StudentDetailPage() {
         {student.last_name} {student.first_name}
       </h1>
       <p style={{ color: 'var(--color-slate)' }}>
-        {student.admission_number} · {armLabel(student.current_class_arm_id)}
+        {student.admission_number} · {armLabel(student.current_class_arm_id)} · {student.status}
       </p>
 
-      <form onSubmit={handleSave} style={{ maxWidth: 'none', margin: 0 }}>
-        <input
-          placeholder="First name"
-          value={form.first_name ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
-        />
-        <input
-          placeholder="Last name"
-          value={form.last_name ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
-        />
-        <input
-          placeholder="Other names"
-          value={form.other_names ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, other_names: e.target.value }))}
-        />
-        <input
-          placeholder="Guardian name"
-          value={form.guardian_name ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, guardian_name: e.target.value }))}
-        />
-        <input
-          placeholder="Guardian phone"
-          value={form.guardian_phone ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, guardian_phone: e.target.value }))}
-        />
-        <input
-          placeholder="Address"
-          value={form.address ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-        />
-        <select
-          value={form.status ?? student.status}
-          onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-        >
-          <option value="new">New</option>
-          <option value="existing">Existing</option>
-        </select>
-        <button type="submit" disabled={saving}>
-          {saving ? 'Saving…' : 'Save changes'}
-        </button>
-        {saved && <span style={{ color: 'green', marginLeft: 8 }}>Saved.</span>}
-      </form>
+      <ProfileSummary studentId={student.id} />
+      <NotesSection studentId={student.id} />
+
+      <details>
+        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Edit bio-data</summary>
+        <form onSubmit={handleSave} style={{ maxWidth: 'none', margin: '0.75rem 0 0' }}>
+          <input
+            placeholder="First name"
+            value={form.first_name ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
+          />
+          <input
+            placeholder="Last name"
+            value={form.last_name ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
+          />
+          <input
+            placeholder="Other names"
+            value={form.other_names ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, other_names: e.target.value }))}
+          />
+          <input
+            placeholder="Guardian name"
+            value={form.guardian_name ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, guardian_name: e.target.value }))}
+          />
+          <input
+            placeholder="Guardian phone"
+            value={form.guardian_phone ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, guardian_phone: e.target.value }))}
+          />
+          <input
+            placeholder="Address"
+            value={form.address ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+          />
+          <select
+            value={form.status ?? student.status}
+            onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+          >
+            <option value="new">New</option>
+            <option value="existing">Existing</option>
+          </select>
+          <button type="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+          {saved && <span style={{ color: 'green', marginLeft: 8 }}>Saved.</span>}
+        </form>
+      </details>
 
       <HouseholdSection student={student} />
 
-      <h2 style={{ marginTop: '2rem' }}>Charges</h2>
-      <p style={{ fontSize: 12, color: '#888' }}>
-        Full arrears breakdown across past sessions comes with the full student profile (task #18) — this covers
-        this student's charges as generated so far.
-      </p>
+      <h2 style={{ marginTop: '2rem' }}>All charges</h2>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd' }}>
@@ -211,24 +178,20 @@ export default function StudentDetailPage() {
           </tr>
         </thead>
         <tbody>
-          {charges.map((c) => {
-            const paid = paidFor(c.id);
-            const balance = c.amount_expected - paid;
-            return (
-              <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: 8 }} title={`fee_item_id: ${c.fee_item_id}`}>
-                  {feeItems.find((f) => f.id === c.fee_item_id)?.name ?? c.fee_item_id}
-                </td>
-                <td style={{ padding: 8 }}>{sessions.find((s) => s.id === c.session_id)?.name ?? c.session_id}</td>
-                <td style={{ padding: 8 }}>{terms.find((t) => t.id === c.term_id)?.name ?? c.term_id}</td>
-                <td style={{ padding: 8 }}>₦{c.amount_expected.toLocaleString()}</td>
-                <td style={{ padding: 8 }}>₦{paid.toLocaleString()}</td>
-                <td style={{ padding: 8, color: balance > 0 ? 'crimson' : 'inherit' }}>
-                  ₦{balance.toLocaleString()}
-                </td>
-              </tr>
-            );
-          })}
+          {charges.map((c) => (
+            <tr key={c.id} style={{ borderBottom: '1px solid #eee' }}>
+              <td style={{ padding: 8 }} title={`fee_item_id: ${c.fee_item_id}`}>
+                {c.feeItemName}
+              </td>
+              <td style={{ padding: 8 }}>{c.sessionName}</td>
+              <td style={{ padding: 8 }}>{c.termName}</td>
+              <td style={{ padding: 8 }}>₦{c.amount_expected.toLocaleString()}</td>
+              <td style={{ padding: 8 }}>₦{c.paid.toLocaleString()}</td>
+              <td style={{ padding: 8, color: c.balance > 0 ? 'crimson' : 'inherit' }}>
+                ₦{c.balance.toLocaleString()}
+              </td>
+            </tr>
+          ))}
           {charges.length === 0 && (
             <tr>
               <td colSpan={6} style={{ padding: 8, color: '#888' }}>
@@ -239,6 +202,7 @@ export default function StudentDetailPage() {
         </tbody>
       </table>
 
+      <PaymentHistorySection studentId={student.id} />
       <PaymentSection studentId={student.id} />
     </div>
   );
