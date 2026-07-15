@@ -41,6 +41,7 @@ const terms = new Table({
   name: column.text,
   start_date: column.text,
   end_date: column.text,
+  is_current: column.integer,
   created_at: column.text
 });
 

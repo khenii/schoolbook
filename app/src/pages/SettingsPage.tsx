@@ -1,11 +1,17 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import SessionsTab from '../components/settings/SessionsTab';
 import ClassesArmsTab from '../components/settings/ClassesArmsTab';
 import FeeItemsTab from '../components/settings/FeeItemsTab';
 
+type TabId = 'sessions' | 'classes' | 'fees';
+const VALID_TABS: TabId[] = ['sessions', 'classes', 'fees'];
+
 export default function SettingsPage() {
-  const [tab, setTab] = useState<'sessions' | 'classes' | 'fees'>('sessions');
+  const [searchParams] = useSearchParams();
+  const requested = searchParams.get('tab');
+  const initialTab: TabId = VALID_TABS.includes(requested as TabId) ? (requested as TabId) : 'sessions';
+  const [tab, setTab] = useState<TabId>(initialTab);
 
   return (
     <div style={{ maxWidth: 720, margin: '2rem auto', padding: '0 1rem' }}>

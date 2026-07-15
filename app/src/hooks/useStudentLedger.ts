@@ -30,6 +30,7 @@ interface FeeItemRow {
 interface TermRow {
   id: string;
   name: string;
+  is_current: number;
   created_at: string;
 }
 
@@ -53,12 +54,10 @@ export interface LedgerCharge extends ChargeRow {
 // and the profile summary (needs current-term vs. arrears split) so the two
 // can never drift out of sync with each other.
 //
-// "Current term" has no explicit flag in the schema (no is_current on
-// terms) — this uses the most recent term (by session/term creation order)
-// that the student actually has a charge in, as a practical stand-in.
-// Everything older counts as arrears. Worth revisiting once term
-// progression / promotion is built and a real "current term" concept
-// exists school-wide.
+// "Current term" is terms.is_current — one explicit, school-wide flag an
+// admin sets from Settings > Sessions (see db/005_current_term.sql). Falls
+// back to the most recent term the student has a charge in only if, for
+// some reason, no term is flagged current yet (shouldn't happen post-migration).
 export function useStudentLedger(studentId: string) {
   const { data: charges } = useQuery<ChargeRow>(
     'SELECT id, fee_item_id, session_id, term_id, amount_expected FROM charges WHERE student_id = ?',
@@ -69,7 +68,7 @@ export function useStudentLedger(studentId: string) {
     [studentId]
   );
   const { data: feeItems } = useQuery<FeeItemRow>('SELECT id, name FROM fee_items');
-  const { data: terms } = useQuery<TermRow>('SELECT id, name, created_at FROM terms');
+  const { data: terms } = useQuery<TermRow>('SELECT id, name, is_current, created_at FROM terms');
   const { data: sessions } = useQuery<SessionRow>('SELECT id, name, created_at FROM sessions');
 
   const paidByCharge = useMemo(() => {
@@ -102,7 +101,9 @@ export function useStudentLedger(studentId: string) {
     [ledgerCharges]
   );
 
-  const currentTermId = sortedByOldest.length > 0 ? sortedByOldest[sortedByOldest.length - 1].term_id : null;
+  const schoolCurrentTermId = terms.find((t) => t.is_current)?.id ?? null;
+  const currentTermId =
+    schoolCurrentTermId ?? (sortedByOldest.length > 0 ? sortedByOldest[sortedByOldest.length - 1].term_id : null);
 
   const currentTermCharges = ledgerCharges.filter((c) => c.term_id === currentTermId);
   const currentTermBalance = currentTermCharges.reduce((sum, c) => sum + c.balance, 0);

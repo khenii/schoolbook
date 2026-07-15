@@ -14,6 +14,7 @@ interface TermRow {
   id: string;
   session_id: string;
   name: string;
+  is_current: number;
 }
 
 export default function SessionsTab() {
@@ -22,7 +23,9 @@ export default function SessionsTab() {
   const schoolId = account.school_id;
 
   const { data: sessions } = useQuery<SessionRow>('SELECT * FROM sessions ORDER BY name DESC');
-  const { data: terms } = useQuery<TermRow>('SELECT id, session_id, name FROM terms ORDER BY created_at ASC');
+  const { data: terms } = useQuery<TermRow>(
+    'SELECT id, session_id, name, is_current FROM terms ORDER BY created_at ASC'
+  );
 
   const [name, setName] = useState('');
   const [makeActive, setMakeActive] = useState(true);
@@ -47,10 +50,17 @@ export default function SessionsTab() {
           'INSERT INTO sessions (id, school_id, name, is_active, created_at) VALUES (?, ?, ?, ?, ?)',
           [sessionId, schoolId, trimmed, makeActive ? 1 : 0, now]
         );
-        for (const termName of ['Term 1', 'Term 2', 'Term 3']) {
+        // A brand-new session's first term is an unambiguous default for
+        // "current term" — no separate confirmation step needed for that
+        // one case. Any other current-term change is explicit (button below).
+        if (makeActive) {
+          await tx.execute('UPDATE terms SET is_current = 0 WHERE is_current = 1');
+        }
+        const termNames = ['Term 1', 'Term 2', 'Term 3'];
+        for (let i = 0; i < termNames.length; i++) {
           await tx.execute(
-            'INSERT INTO terms (id, school_id, session_id, name, created_at) VALUES (?, ?, ?, ?, ?)',
-            [crypto.randomUUID(), schoolId, sessionId, termName, now]
+            'INSERT INTO terms (id, school_id, session_id, name, is_current, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+            [crypto.randomUUID(), schoolId, sessionId, termNames[i], makeActive && i === 0 ? 1 : 0, now]
           );
         }
       });
@@ -66,6 +76,13 @@ export default function SessionsTab() {
     await db.writeTransaction(async (tx) => {
       await tx.execute('UPDATE sessions SET is_active = 0 WHERE is_active = 1');
       await tx.execute('UPDATE sessions SET is_active = 1 WHERE id = ?', [id]);
+    });
+  }
+
+  async function setCurrentTerm(termId: string) {
+    await db.writeTransaction(async (tx) => {
+      await tx.execute('UPDATE terms SET is_current = 0 WHERE is_current = 1');
+      await tx.execute('UPDATE terms SET is_current = 1 WHERE id = ?', [termId]);
     });
   }
 
@@ -127,7 +144,8 @@ export default function SessionsTab() {
                 <p style={{ fontSize: 12, color: '#888' }}>
                   Generating recurring charges bills every currently-enrolled student for that term's all-students
                   recurring fee items (e.g. School Fees). One-off and new-students-only items are never generated
-                  here — those only happen once, at enrollment.
+                  here — those only happen once, at enrollment. "Current term" drives the dashboard, reports, and
+                  each student's balance split — only one term across the whole school can be current at a time.
                 </p>
                 {sessionTerms.map((t) => (
                   <div
@@ -140,7 +158,17 @@ export default function SessionsTab() {
                       borderBottom: '1px solid #eee'
                     }}
                   >
-                    <span style={{ flex: 1 }}>{t.name}</span>
+                    <span style={{ flex: 1 }}>
+                      {t.name}
+                      {t.is_current ? (
+                        <span
+                          style={{ fontSize: 11, fontFamily: 'monospace', color: 'green', marginLeft: 8 }}
+                        >
+                          CURRENT
+                        </span>
+                      ) : null}
+                    </span>
+                    {!t.is_current && <button onClick={() => setCurrentTerm(t.id)}>Set as current</button>}
                     <button onClick={() => handleGenerateCharges(t)} disabled={generating === t.id}>
                       {generating === t.id ? 'Generating…' : 'Generate recurring charges'}
                     </button>
