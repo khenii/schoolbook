@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useQuery } from '@powersync/react';
+import AppShell from '../components/AppShell';
 import { useAppContext } from '../lib/AppContext';
+import { useSchoolLedger } from '../hooks/useSchoolLedger';
+import { exportToCSV } from '../lib/csv';
 
 interface AuditRow {
   id: string;
@@ -18,41 +20,111 @@ interface AccountRow {
   email: string;
 }
 
-const tableWrapStyle: React.CSSProperties = {
-  background: 'white',
-  border: '1px solid #e2e8f0',
-  borderRadius: 10,
-  overflow: 'hidden'
+type LogType = 'payment' | 'void' | 'writeoff' | 'discount' | 'student' | 'exit' | 'promotion' | 'config';
+
+const TYPE_LABELS: Record<LogType, string> = {
+  payment: 'PAYMENT',
+  void: 'VOIDED',
+  writeoff: 'WRITE-OFF',
+  discount: 'DISCOUNT',
+  student: 'STUDENT',
+  exit: 'EXIT',
+  promotion: 'PROMOTION',
+  config: 'CONFIG'
 };
 
-const rowStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-start',
-  gap: 10,
-  padding: '10px 16px',
-  borderBottom: '1px solid #eee',
-  fontSize: 12.5
+const TYPE_ICONS: Record<LogType, string> = {
+  payment: '₦',
+  void: '✕',
+  writeoff: '📝',
+  discount: '%',
+  student: '☺',
+  exit: '🗂',
+  promotion: '↑',
+  config: '⚙'
 };
 
-const headRowStyle: React.CSSProperties = {
-  ...rowStyle,
-  background: '#f8fafc',
-  fontSize: 10.5,
-  textTransform: 'uppercase',
-  letterSpacing: '0.04em',
-  color: '#64748b',
-  fontWeight: 600
+const ACTION_LABELS: Record<string, string> = {
+  'payment.recorded': 'Payment recorded',
+  'payment.voided': 'Payment voided',
+  'charge.written_off': 'Balance written off',
+  'discount.applied': 'Discount added',
+  'discount.removed': 'Discount removed',
+  'student.enrolled': 'New student added',
+  'student.updated': 'Student details updated',
+  'student.reactivated': 'Student reactivated',
+  'student.withdrawn': 'Student marked withdrawn',
+  'student.graduated': 'Student marked graduated',
+  'promotion.run': 'Class promoted',
+  'session.created': 'Session created',
+  'session.activated': 'Session set as active',
+  'term.set_current': 'Term set as current',
+  'charges.recurring_generated': 'Recurring charges generated',
+  'class_level.added': 'Class level added',
+  'class_level.removed': 'Class level removed',
+  'class_arm.added': 'Class arm added',
+  'class_arm.removed': 'Class arm removed',
+  'fee_item.added': 'Fee item added',
+  'fee_item.removed': 'Fee item removed',
+  'import.students': 'Historical import — students',
+  'import.charges_payments': 'Historical import — charges & payments'
 };
 
-// Coarse grouping so the filter dropdown isn't 30 raw action strings —
-// entity_type is already a reasonable bucket (student, payment, charge,
-// discount, class_arm, class_level, fee_item, session, term).
 function actionLabel(action: string) {
-  return action.replace(/_/g, ' ').replace(/\./g, ' — ');
+  return ACTION_LABELS[action] ?? action.replace(/_/g, ' ').replace(/\./g, ' — ');
 }
 
+// Every real action string this app logs (see grep of `logAudit(` call
+// sites) mapped onto the 8 event-type buckets 12-audit-log.html defines
+// icons/tags for. The mockup's own bucket list doesn't have an "import"
+// type, so bulk historical imports are folded into the closest existing
+// bucket (new students → student, bulk charges/payments → payment) rather
+// than adding a 9th color/icon the mockup never designed.
+function typeFor(action: string): LogType {
+  if (action === 'payment.voided') return 'void';
+  if (action.startsWith('payment.') || action === 'import.charges_payments') return 'payment';
+  if (action === 'charge.written_off') return 'writeoff';
+  if (action.startsWith('discount.')) return 'discount';
+  if (action === 'student.withdrawn' || action === 'student.graduated') return 'exit';
+  if (action.startsWith('student.') || action === 'import.students') return 'student';
+  if (action === 'promotion.run') return 'promotion';
+  return 'config';
+}
+
+function parseMetadata(raw: string | null): Record<string, unknown> | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+const MONEY_KEYS = new Set(['amount', 'total', 'value', 'outstandingBalance']);
+
+function formatDetail(meta: Record<string, unknown> | null): { detail: string; reason?: string } {
+  if (!meta) return { detail: '—' };
+  const reason = typeof meta.reason === 'string' && meta.reason.trim() ? meta.reason.trim() : undefined;
+  const notes = typeof meta.notes === 'string' && meta.notes.trim() ? meta.notes.trim() : undefined;
+  const parts = Object.entries(meta)
+    .filter(([k, v]) => k !== 'reason' && k !== 'notes' && k !== 'studentIds' && v !== null && v !== undefined && v !== '')
+    .map(([k, v]) => {
+      if (MONEY_KEYS.has(k) && typeof v === 'number') return `₦${v.toLocaleString()}`;
+      if (Array.isArray(v)) return `${v.length} item${v.length === 1 ? '' : 's'}`;
+      if (typeof v === 'boolean') return v ? k : `not ${k}`;
+      return String(v).replace(/-/g, ' ');
+    });
+  return { detail: parts.join(' · ') || '—', reason: reason ?? notes };
+}
+
+// Matches 12-audit-log.html — the mockup's "who did what" event feed. The
+// mockup's data is 12 fixed demo rows; this drives the same visual language
+// off the real audit_log table (append-only, no UPDATE/DELETE, same as
+// charges/payments), resolving actor emails and — where metadata carries a
+// studentId — the student's name for the "Action — Student Name" heading.
 export default function AuditLogPage() {
   const { account } = useAppContext();
+  const { studentMap } = useSchoolLedger();
 
   const { data: rows } = useQuery<AuditRow>(
     'SELECT id, actor_id, action, entity_type, entity_id, metadata, created_at FROM audit_log WHERE school_id = ? ORDER BY created_at DESC LIMIT 500',
@@ -66,92 +138,120 @@ export default function AuditLogPage() {
     return map;
   }, [accounts]);
 
-  const entityTypes = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of rows) set.add(r.entity_type);
-    return Array.from(set).sort();
-  }, [rows]);
-
-  const [entityFilter, setEntityFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | LogType>('all');
   const [search, setSearch] = useState('');
 
-  const filtered = useMemo(() => {
-    let list = rows;
-    if (entityFilter !== 'all') list = list.filter((r) => r.entity_type === entityFilter);
-    const q = search.trim().toLowerCase();
-    if (q) {
-      list = list.filter(
-        (r) =>
-          r.action.toLowerCase().includes(q) ||
-          (r.metadata ?? '').toLowerCase().includes(q) ||
-          (actorEmail.get(r.actor_id ?? '') ?? '').toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [rows, entityFilter, search, actorEmail]);
+  const entries = useMemo(() => {
+    return rows.map((r) => {
+      const meta = parseMetadata(r.metadata);
+      const type = typeFor(r.action);
+      const { detail, reason } = formatDetail(meta);
+      const studentId = (meta?.studentId as string | undefined) ?? (r.entity_type === 'student' ? r.entity_id : null);
+      const student = studentId ? studentMap.get(studentId) : undefined;
+      const studentName = student ? `${student.first_name} ${student.last_name}` : null;
+      const by = actorEmail.get(r.actor_id ?? '') ?? 'System';
+      return {
+        id: r.id,
+        type,
+        time: new Date(r.created_at).toLocaleString(),
+        action: actionLabel(r.action),
+        detail,
+        reason,
+        by,
+        student: studentName
+      };
+    });
+  }, [rows, studentMap, actorEmail]);
 
-  function formatMetadata(raw: string | null) {
-    if (!raw) return '—';
-    try {
-      const obj = JSON.parse(raw) as Record<string, unknown>;
-      const parts = Object.entries(obj)
-        .filter(([, v]) => v !== null && v !== undefined && !(Array.isArray(v) && v.length > 6))
-        .map(([k, v]) => `${k}: ${Array.isArray(v) ? `${v.length} item${v.length === 1 ? '' : 's'}` : String(v)}`);
-      return parts.join(', ') || '—';
-    } catch {
-      return raw;
-    }
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return entries.filter((e) => {
+      if (typeFilter !== 'all' && e.type !== typeFilter) return false;
+      if (q) {
+        const hay = `${e.action} ${e.detail} ${e.by} ${e.student ?? ''} ${e.reason ?? ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [entries, typeFilter, search]);
+
+  function handleExport() {
+    exportToCSV(
+      `audit-log-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['Time', 'Type', 'Action', 'Student', 'Detail', 'Reason', 'By'],
+      filtered.map((e) => [e.time, TYPE_LABELS[e.type], e.action, e.student ?? '', e.detail, e.reason ?? '', e.by])
+    );
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '1.5rem 1rem 4rem' }}>
-      <p>
-        <Link to="/">← Back to dashboard</Link>
-      </p>
-      <h1 style={{ marginBottom: 2 }}>Audit log</h1>
-      <p style={{ color: '#64748b', margin: '0 0 16px' }}>
-        A running record of who did what — enrollments, payments, voids, write-offs, discounts, promotions,
-        withdrawals, and structural changes to sessions, classes, and fee items. This is a read-only history; it
-        can't be edited or deleted. Showing the most recent 500 entries.
-      </p>
+    <AppShell title="Audit Log" pageClass="page-auditlog">
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">Configuration</div>
+          <h2>Every consequential change, in order</h2>
+          <p>
+            Who did what and when — fee price changes, write-offs, voided payments, discounts, promotions, and
+            withdrawals. Nothing here is editable; it's a record, not a working list. Showing the most recent 500
+            entries.
+          </p>
+        </div>
+        <button className="btn-ghost" onClick={handleExport} disabled={filtered.length === 0}>
+          Export CSV
+        </button>
+      </div>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-        <select value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)}>
-          <option value="all">All types</option>
-          {entityTypes.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
+      <div className="filter-bar">
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as 'all' | LogType)}>
+          <option value="all">All event types</option>
+          <option value="payment">Payments recorded</option>
+          <option value="void">Payments voided</option>
+          <option value="writeoff">Write-offs</option>
+          <option value="discount">Discounts added</option>
+          <option value="student">Student record changes</option>
+          <option value="exit">Withdrawals / exits</option>
+          <option value="promotion">Promotions</option>
+          <option value="config">Configuration changes</option>
         </select>
         <input
-          placeholder="Search action, person, or details…"
+          type="text"
+          placeholder="Search by student, staff member, or detail…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: 1, minWidth: 200 }}
         />
       </div>
 
-      <div style={tableWrapStyle}>
-        <div style={headRowStyle}>
-          <span style={{ width: 140 }}>When</span>
-          <span style={{ width: 160 }}>Who</span>
-          <span style={{ width: 170 }}>Action</span>
-          <span style={{ flex: 1 }}>Details</span>
-        </div>
+      <div className="result-count">
+        {filtered.length} event{filtered.length !== 1 ? 's' : ''}
+      </div>
+
+      <div className="log-wrap">
         {filtered.length === 0 ? (
-          <div style={{ padding: 16, color: '#888', fontSize: 12.5 }}>No matching entries.</div>
+          <div className="empty-note">No events match this filter.</div>
         ) : (
-          filtered.map((r) => (
-            <div key={r.id} style={rowStyle}>
-              <span style={{ width: 140, color: '#64748b' }}>{new Date(r.created_at).toLocaleString()}</span>
-              <span style={{ width: 160 }}>{actorEmail.get(r.actor_id ?? '') ?? 'System'}</span>
-              <span style={{ width: 170, textTransform: 'capitalize' }}>{actionLabel(r.action)}</span>
-              <span style={{ flex: 1, color: '#555' }}>{formatMetadata(r.metadata)}</span>
+          filtered.map((e) => (
+            <div className="log-row" key={e.id}>
+              <div className={`log-icon ${e.type}`}>{TYPE_ICONS[e.type]}</div>
+              <div className="log-body">
+                <div className="log-top">
+                  <div className="log-action">
+                    {e.action}
+                    {e.student ? ` — ${e.student}` : ''}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className={`log-type-tag ${e.type}`}>{TYPE_LABELS[e.type]}</span>
+                    <span className="log-time">{e.time}</span>
+                  </div>
+                </div>
+                <div className="log-detail">
+                  {e.detail}
+                  {e.reason && <> — <span className="quoted">"{e.reason}"</span></>}
+                </div>
+                <div className="log-by">{e.by}</div>
+              </div>
             </div>
           ))
         )}
       </div>
-    </div>
+    </AppShell>
   );
 }
