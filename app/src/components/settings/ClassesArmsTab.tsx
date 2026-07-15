@@ -21,6 +21,14 @@ interface SessionOption {
   name: string;
 }
 
+// The "level-card" / "arm-row" family from 09-settings.html. The mockup's
+// version is a flat, single-session demo with fabricated "reported vs
+// enrolled" capacity numbers that don't exist in the real schema — arms are
+// genuinely session-scoped here (spec §3.9: a new session starts with no
+// arms configured yet), and levels can be reordered/renamed/removed, none
+// of which the mockup covers. Those real controls are folded into the
+// level-head as small icon actions styled like the mockup's own
+// .arm-remove, rather than left as bare buttons.
 export default function ClassesArmsTab() {
   const db = usePowerSync();
   const { account } = useAppContext();
@@ -81,7 +89,10 @@ export default function ClassesArmsTab() {
 
   async function renameLevel(id: string) {
     const name = renameValue.trim();
-    if (!name) return;
+    if (!name) {
+      setRenamingId(null);
+      return;
+    }
     setRenameError(null);
     const collides = levels.some((l) => l.id !== id && l.name.trim().toLowerCase() === name.toLowerCase());
     if (collides) {
@@ -167,96 +178,118 @@ export default function ClassesArmsTab() {
   }
 
   if (!viewingSessionId) {
-    return <p>No sessions yet — add one in the Sessions tab first, then come back here to set up arms.</p>;
+    return (
+      <div className="tab-subhead">
+        <p>No sessions yet — add one in the Sessions tab first, then come back here to set up arms.</p>
+      </div>
+    );
   }
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <label style={{ fontSize: 12, color: '#888', marginRight: 8 }}>Viewing session:</label>
-        <select value={viewingSessionId} onChange={(e) => setSelectedSessionId(e.target.value)}>
+      <div className="tab-subhead">
+        <div>
+          <p>
+            Add arms to any class level — e.g. split SS3 into A, B, C. Levels with no arms added yet will use a
+            single default section.
+          </p>
+        </div>
+        <select
+          value={viewingSessionId}
+          onChange={(e) => setSelectedSessionId(e.target.value)}
+          style={{ padding: '8px 11px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12.5, background: 'var(--paper-card)', color: 'var(--ink)' }}
+        >
           {sessions.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.name}
+              Viewing: {s.name}
               {activeSession?.id === s.id ? ' (active)' : ''}
             </option>
           ))}
         </select>
       </div>
-      <p style={{ color: 'var(--color-slate)', fontSize: 13 }}>
-        Add arms to any class level — e.g. split SS3 into A, B, C. Levels with no arms yet use a single default
-        section.
-      </p>
 
-      {sortedLevels.map((level, idx) => {
-        const levelArms = armsByLevel(level.id);
-        const isOpen = openLevelId === level.id;
-        return (
-          <div key={level.id} style={{ border: '1px solid #ddd', borderRadius: 8, marginBottom: 10, padding: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button onClick={() => moveLevel(level.id, -1)} disabled={idx === 0} title="Move up">
-                ↑
-              </button>
-              <button
-                onClick={() => moveLevel(level.id, 1)}
-                disabled={idx === sortedLevels.length - 1}
-                title="Move down"
-              >
-                ↓
-              </button>
-              <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setOpenLevelId(isOpen ? null : level.id)}>
-                {renamingId === level.id ? (
-                  <>
-                    <input
-                      value={renameValue}
-                      onChange={(e) => {
-                        setRenameValue(e.target.value);
-                        setRenameError(null);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      onBlur={() => renameLevel(level.id)}
-                      onKeyDown={(e) => e.key === 'Enter' && renameLevel(level.id)}
-                      autoFocus
-                    />
-                    {renameError && (
-                      <div style={{ color: 'crimson', fontSize: 11.5 }}>{renameError}</div>
-                    )}
-                  </>
-                ) : (
-                  <strong>{level.name}</strong>
-                )}
-                <span style={{ color: '#888', marginLeft: 8, fontSize: 12 }}>
-                  {levelArms.length} arm{levelArms.length !== 1 ? 's' : ''}
-                </span>
+      <div>
+        {sortedLevels.map((level, idx) => {
+          const levelArms = armsByLevel(level.id);
+          const isOpen = openLevelId === level.id;
+          return (
+            <div className={`level-card${isOpen ? ' open' : ''}`} key={level.id}>
+              <div className="level-head" onClick={() => setOpenLevelId(isOpen ? null : level.id)}>
+                <div className="level-order-badge">{String(idx + 1).padStart(2, '0')}</div>
+                <div className="level-title">
+                  {renamingId === level.id ? (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <input
+                        value={renameValue}
+                        onChange={(e) => {
+                          setRenameValue(e.target.value);
+                          setRenameError(null);
+                        }}
+                        onBlur={() => renameLevel(level.id)}
+                        onKeyDown={(e) => e.key === 'Enter' && renameLevel(level.id)}
+                        autoFocus
+                        style={{ padding: '5px 8px', border: '1px solid var(--line)', borderRadius: 6, fontSize: 13.5 }}
+                      />
+                      {renameError && <div className="field-error" style={{ display: 'block' }}>{renameError}</div>}
+                    </div>
+                  ) : (
+                    <div className="name">{level.name}</div>
+                  )}
+                  <div className="sub">
+                    {levelArms.length} arm{levelArms.length !== 1 ? 's' : ''}
+                  </div>
+                </div>
+                <div className="arm-tags">
+                  {levelArms.map((a) => (
+                    <div className="arm-tag" key={a.id}>
+                      {a.name}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 2 }} onClick={(e) => e.stopPropagation()}>
+                  <span className="arm-remove" title="Move up" onClick={() => moveLevel(level.id, -1)} style={idx === 0 ? { opacity: 0.3, pointerEvents: 'none' } : undefined}>
+                    ↑
+                  </span>
+                  <span
+                    className="arm-remove"
+                    title="Move down"
+                    onClick={() => moveLevel(level.id, 1)}
+                    style={idx === sortedLevels.length - 1 ? { opacity: 0.3, pointerEvents: 'none' } : undefined}
+                  >
+                    ↓
+                  </span>
+                  <span
+                    className="arm-remove"
+                    title="Rename"
+                    onClick={() => {
+                      setRenamingId(level.id);
+                      setRenameValue(level.name);
+                    }}
+                  >
+                    ✎
+                  </span>
+                  <span className="arm-remove" title="Remove level" onClick={() => removeLevel(level.id)}>
+                    ✕
+                  </span>
+                </div>
+                <div className="chevron">▸</div>
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setRenamingId(level.id);
-                  setRenameValue(level.name);
-                }}
-              >
-                Rename
-              </button>
-              <button onClick={() => removeLevel(level.id)} style={{ color: 'crimson' }}>
-                Remove
-              </button>
-            </div>
 
-            {isOpen && (
-              <div style={{ marginTop: 12, paddingLeft: 24 }}>
+              <div className="level-body">
                 {levelArms.map((arm) => (
-                  <div key={arm.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
-                    <span>
+                  <div className="arm-row" key={arm.id}>
+                    <div className="arm-badge">{arm.name}</div>
+                    <div className="arm-name">
                       {level.name} {arm.name}
-                    </span>
-                    <button onClick={() => removeArm(arm.id)} style={{ marginLeft: 'auto', color: 'crimson' }}>
+                    </div>
+                    <div className="arm-remove" onClick={() => removeArm(arm.id)}>
                       ✕
-                    </button>
+                    </div>
                   </div>
                 ))}
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <div className="add-arm-row">
                   <input
+                    type="text"
                     placeholder="New arm name, e.g. D"
                     value={newArmName[level.id] ?? ''}
                     onChange={(e) => {
@@ -267,46 +300,49 @@ export default function ClassesArmsTab() {
                   <button onClick={() => addArm(level.id)}>Add arm</button>
                 </div>
                 {armError[level.id] && (
-                  <p style={{ color: 'crimson', fontSize: 12 }}>{armError[level.id]}</p>
+                  <p className="field-error" style={{ display: 'block' }}>
+                    {armError[level.id]}
+                  </p>
                 )}
               </div>
-            )}
-          </div>
-        );
-      })}
+            </div>
+          );
+        })}
+      </div>
 
       {addingLevel ? (
-        <div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              placeholder="Class level name, e.g. Creche"
-              value={newLevelName}
-              onChange={(e) => {
-                setNewLevelName(e.target.value);
-                setAddLevelError(null);
-              }}
-              autoFocus
-            />
-            <button onClick={addLevel}>Add</button>
-            <button
-              onClick={() => {
-                setAddingLevel(false);
-                setNewLevelName('');
-                setAddLevelError(null);
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-          {addLevelError && <p style={{ color: 'crimson', fontSize: 12.5 }}>{addLevelError}</p>}
+        <div className="add-arm-row" style={{ marginTop: 0 }}>
+          <input
+            type="text"
+            placeholder="Class level name, e.g. Creche"
+            value={newLevelName}
+            onChange={(e) => {
+              setNewLevelName(e.target.value);
+              setAddLevelError(null);
+            }}
+            autoFocus
+          />
+          <button onClick={addLevel}>Add</button>
+          <button
+            onClick={() => {
+              setAddingLevel(false);
+              setNewLevelName('');
+              setAddLevelError(null);
+            }}
+            style={{ color: 'var(--slate-soft)' }}
+          >
+            Cancel
+          </button>
         </div>
       ) : (
-        <div
-          onClick={() => setAddingLevel(true)}
-          style={{ border: '1.5px dashed #ccc', borderRadius: 8, padding: 12, cursor: 'pointer', color: '#888' }}
-        >
+        <div className="add-level-card" onClick={() => setAddingLevel(true)}>
           + Add another class level
         </div>
+      )}
+      {addLevelError && (
+        <p className="field-error" style={{ display: 'block' }}>
+          {addLevelError}
+        </p>
       )}
     </div>
   );

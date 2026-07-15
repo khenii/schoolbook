@@ -191,6 +191,13 @@ body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink)
 
 .btn-primary:hover{ background:var(--slate); }
 
+/* .btn-ghost has no equivalent in 09-settings.html (the mockup only ever
+   uses .btn-primary on this page) — the real Sessions tab needs a
+   secondary-weight action for "Generate recurring charges" next to
+   "Set as current", so this scopes the same ghost treatment used on
+   Payments/Reports/Audit Log to page-settings too. */
+.page-settings .btn-ghost{ padding:9px 15px; background:var(--paper-card); color:var(--slate); border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; }
+
 .page-students .filter-bar, .page-payments .filter-bar, .page-auditlog .filter-bar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
 
 .page-reports .filter-bar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; justify-content:space-between; }

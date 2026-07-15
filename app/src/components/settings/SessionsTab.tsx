@@ -18,6 +18,12 @@ interface TermRow {
   is_current: number;
 }
 
+// No mockup covers Sessions — it doesn't exist in the delivered designs at
+// all, but sessions/terms and "generate recurring charges" are core,
+// load-bearing mechanics (spec §3.9/§3.10: the whole app's current-term
+// concept lives here). Styled to match the same level-card/arm-row/badge
+// family used by Classes & Arms and Fee Items on this page, rather than
+// left in its previous unstyled state, so the tab doesn't look bolted on.
 export default function SessionsTab() {
   const db = usePowerSync();
   const { account } = useAppContext();
@@ -51,9 +57,6 @@ export default function SessionsTab() {
           'INSERT INTO sessions (id, school_id, name, is_active, created_at) VALUES (?, ?, ?, ?, ?)',
           [sessionId, schoolId, trimmed, makeActive ? 1 : 0, now]
         );
-        // A brand-new session's first term is an unambiguous default for
-        // "current term" — no separate confirmation step needed for that
-        // one case. Any other current-term change is explicit (button below).
         if (makeActive) {
           await tx.execute('UPDATE terms SET is_current = 0 WHERE is_current = 1');
         }
@@ -148,84 +151,93 @@ export default function SessionsTab() {
 
   return (
     <div>
-      <p style={{ color: 'var(--color-slate)', fontSize: 13 }}>
-        Only one session is "active" at a time — that's the one new students and charges default to. Past sessions
-        stay fully accessible and permanent even once no longer active. Add historical sessions here too when
-        migrating past paper records.
-      </p>
+      <div className="tab-subhead">
+        <div>
+          <p>
+            Only one session is "active" at a time — that's the one new students and charges default to. Past
+            sessions stay fully accessible and permanent even once no longer active. Add historical sessions here
+            too when migrating past paper records.
+          </p>
+        </div>
+      </div>
 
       {sessions.map((s) => {
         const sessionTerms = terms.filter((t) => t.session_id === s.id);
         const isOpen = openSessionId === s.id;
         return (
-          <div key={s.id} style={{ border: '1px solid #ddd', borderRadius: 8, marginBottom: 8, padding: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <strong style={{ flex: 1, cursor: 'pointer' }} onClick={() => setOpenSessionId(isOpen ? null : s.id)}>
-                {s.name}
-              </strong>
+          <div className={`level-card${isOpen ? ' open' : ''}`} key={s.id}>
+            <div className="level-head" onClick={() => setOpenSessionId(isOpen ? null : s.id)}>
+              <div className="level-title">
+                <div className="name">{s.name}</div>
+                <div className="sub">
+                  {sessionTerms.length} term{sessionTerms.length !== 1 ? 's' : ''}
+                </div>
+              </div>
               {s.is_active ? (
-                <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'green' }}>ACTIVE</span>
+                <div className="badge recurring">ACTIVE</div>
               ) : (
-                <button onClick={() => setActive(s.id)}>Set as active</button>
+                <span
+                  className="mini-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActive(s.id);
+                  }}
+                >
+                  Set as active
+                </span>
               )}
-              <button onClick={() => setOpenSessionId(isOpen ? null : s.id)}>{isOpen ? 'Hide terms' : 'Terms'}</button>
+              <div className="chevron">▸</div>
             </div>
 
-            {isOpen && (
-              <div style={{ marginTop: 12, paddingLeft: 12 }}>
-                <p style={{ fontSize: 12, color: '#888' }}>
-                  Generating recurring charges bills every currently-enrolled student for that term's all-students
-                  recurring fee items (e.g. School Fees). One-off and new-students-only items are never generated
-                  here — those only happen once, at enrollment. "Current term" drives the dashboard, reports, and
-                  each student's balance split — only one term across the whole school can be current at a time.
-                </p>
-                {sessionTerms.map((t) => (
-                  <div
-                    key={t.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '8px 0',
-                      borderBottom: '1px solid #eee'
-                    }}
-                  >
-                    <span style={{ flex: 1 }}>
-                      {t.name}
-                      {t.is_current ? (
-                        <span
-                          style={{ fontSize: 11, fontFamily: 'monospace', color: 'green', marginLeft: 8 }}
-                        >
-                          CURRENT
-                        </span>
-                      ) : null}
-                    </span>
-                    {!t.is_current && <button onClick={() => setCurrentTerm(t.id)}>Set as current</button>}
-                    <button onClick={() => handleGenerateCharges(t)} disabled={generating === t.id}>
-                      {generating === t.id ? 'Generating…' : 'Generate recurring charges'}
-                    </button>
-                    {termMessage[t.id] && (
-                      <span style={{ fontSize: 12, color: '#555', marginLeft: 8 }}>{termMessage[t.id]}</span>
-                    )}
+            <div className="level-body">
+              <p style={{ fontSize: 12, color: 'var(--slate-soft)', marginBottom: 10, lineHeight: 1.5 }}>
+                Generating recurring charges bills every currently-enrolled student for that term's all-students
+                recurring fee items (e.g. School Fees). One-off and new-students-only items are never generated
+                here — those only happen once, at enrollment. "Current term" drives the dashboard, reports, and each
+                student's balance split — only one term across the whole school can be current at a time.
+              </p>
+              {sessionTerms.map((t) => (
+                <div className="arm-row" key={t.id} style={{ flexWrap: 'wrap' }}>
+                  <div className="arm-name">
+                    {t.name}
+                    {t.is_current ? (
+                      <span className="badge recurring" style={{ marginLeft: 8 }}>
+                        CURRENT
+                      </span>
+                    ) : null}
                   </div>
-                ))}
-              </div>
-            )}
+                  {!t.is_current && (
+                    <span className="mini-btn" onClick={() => setCurrentTerm(t.id)}>
+                      Set as current
+                    </span>
+                  )}
+                  <button className="btn-ghost" onClick={() => handleGenerateCharges(t)} disabled={generating === t.id}>
+                    {generating === t.id ? 'Generating…' : 'Generate recurring charges'}
+                  </button>
+                  {termMessage[t.id] && (
+                    <div style={{ flexBasis: '100%', fontSize: 11.5, color: 'var(--slate-soft)', marginTop: 4 }}>
+                      {termMessage[t.id]}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         );
       })}
 
       {adding ? (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="add-arm-row" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <input
+            type="text"
             placeholder='Session name, e.g. "2025/2026"'
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
           />
-          <label style={{ fontSize: 12.5 }}>
-            <input type="checkbox" checked={makeActive} onChange={(e) => setMakeActive(e.target.checked)} /> Make
-            this the active session
+          <label style={{ fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+            <input type="checkbox" checked={makeActive} onChange={(e) => setMakeActive(e.target.checked)} />
+            Make this the active session
           </label>
           <button onClick={createSession}>Add</button>
           <button
@@ -233,19 +245,21 @@ export default function SessionsTab() {
               setAdding(false);
               setName('');
             }}
+            style={{ color: 'var(--slate-soft)' }}
           >
             Cancel
           </button>
         </div>
       ) : (
-        <div
-          onClick={() => setAdding(true)}
-          style={{ border: '1.5px dashed #ccc', borderRadius: 8, padding: 12, cursor: 'pointer', color: '#888' }}
-        >
+        <div className="add-level-card" onClick={() => setAdding(true)}>
           + Add another session
         </div>
       )}
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+      {error && (
+        <p className="field-error" style={{ display: 'block' }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
