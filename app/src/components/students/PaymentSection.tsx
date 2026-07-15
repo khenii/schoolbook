@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { usePowerSync } from '@powersync/react';
 import { useAppContext } from '../../lib/AppContext';
 import { useStudentLedger } from '../../hooks/useStudentLedger';
+import { logAudit } from '../../lib/auditLog';
 
 type Method = 'cash' | 'bank-transfer' | 'pos' | 'other';
 
@@ -89,6 +90,14 @@ export default function PaymentSection({ studentId }: { studentId: string }) {
             ]
           );
         }
+        await logAudit(tx, {
+          schoolId,
+          actorId: account.id,
+          action: 'payment.recorded',
+          entityType: 'payment',
+          entityId: transactionId,
+          metadata: { studentId, total, method, chargeCount: allocations.length }
+        });
       });
 
       setSuccess(

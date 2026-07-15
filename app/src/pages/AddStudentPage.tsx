@@ -6,6 +6,7 @@ import { useAppContext } from '../lib/AppContext';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { generateChargesForNewStudent } from '../lib/charges';
 import { linkStudentsToHousehold, normalizePhone } from '../lib/households';
+import { logAudit } from '../lib/auditLog';
 
 interface TermRow {
   id: string;
@@ -166,6 +167,20 @@ export default function AddStudentPage() {
           sessionId: activeSession.id,
           termId: effectiveTermId,
           isNewStudent: status === 'new'
+        });
+
+        await logAudit(tx, {
+          schoolId,
+          actorId: account.id,
+          action: 'student.enrolled',
+          entityType: 'student',
+          entityId: studentId,
+          metadata: {
+            name: `${firstName.trim()} ${lastName.trim()}`,
+            admissionNumber: admissionNumber.trim(),
+            status,
+            chargeCount
+          }
         });
       });
 

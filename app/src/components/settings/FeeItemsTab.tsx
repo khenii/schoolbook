@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../../lib/AppContext';
+import { logAudit } from '../../lib/auditLog';
 
 interface ClassLevel {
   id: string;
@@ -65,6 +66,14 @@ export default function FeeItemsTab() {
           [crypto.randomUUID(), schoolId, id, level.id, now]
         );
       }
+      await logAudit(tx, {
+        schoolId,
+        actorId: account.id,
+        action: 'fee_item.added',
+        entityType: 'fee_item',
+        entityId: id,
+        metadata: { name }
+      });
     });
     setNewFeeName('');
     setAddingFee(false);
@@ -73,9 +82,18 @@ export default function FeeItemsTab() {
 
   async function removeFeeItem(id: string) {
     if (!confirm('Remove this fee item and its pricing? This does not affect charges already generated.')) return;
+    const feeName = feeItems.find((f) => f.id === id)?.name;
     await db.writeTransaction(async (tx) => {
       await tx.execute('DELETE FROM fee_item_pricing WHERE fee_item_id = ?', [id]);
       await tx.execute('DELETE FROM fee_items WHERE id = ?', [id]);
+      await logAudit(tx, {
+        schoolId,
+        actorId: account.id,
+        action: 'fee_item.removed',
+        entityType: 'fee_item',
+        entityId: id,
+        metadata: { name: feeName }
+      });
     });
   }
 

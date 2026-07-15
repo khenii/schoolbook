@@ -11,6 +11,7 @@ import NotesSection from '../components/students/NotesSection';
 import PaymentHistorySection from '../components/students/PaymentHistorySection';
 import DiscountsSection from '../components/students/DiscountsSection';
 import ExitSection from '../components/students/ExitSection';
+import { logAudit } from '../lib/auditLog';
 
 interface StudentRow {
   id: string;
@@ -94,20 +95,22 @@ export default function StudentDetailPage() {
     }
     setWriteOffSaving(true);
     try {
-      await db.execute(
-        `INSERT INTO write_offs (id, school_id, charge_id, student_id, amount, reason, written_off_by, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          crypto.randomUUID(),
-          account.school_id,
-          chargeId,
-          studentId,
-          amount,
-          writeOffReason.trim(),
-          account.id,
-          new Date().toISOString()
-        ]
-      );
+      const writeOffId = crypto.randomUUID();
+      await db.writeTransaction(async (tx) => {
+        await tx.execute(
+          `INSERT INTO write_offs (id, school_id, charge_id, student_id, amount, reason, written_off_by, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [writeOffId, account.school_id, chargeId, studentId, amount, writeOffReason.trim(), account.id, new Date().toISOString()]
+        );
+        await logAudit(tx, {
+          schoolId: account.school_id,
+          actorId: account.id,
+          action: 'charge.written_off',
+          entityType: 'charge',
+          entityId: chargeId,
+          metadata: { studentId, amount, reason: writeOffReason.trim() }
+        });
+      });
       cancelWriteOff();
     } catch (err) {
       setWriteOffError(err instanceof Error ? err.message : 'Something went wrong');
@@ -143,24 +146,34 @@ export default function StudentDetailPage() {
     e.preventDefault();
     setSaving(true);
     setSaved(false);
-    await db.execute(
-      `UPDATE students SET
-         first_name = ?, last_name = ?, other_names = ?, guardian_name = ?, guardian_phone = ?,
-         address = ?, gender = ?, date_of_birth = ?, status = ?
-       WHERE id = ?`,
-      [
-        form.first_name ?? student.first_name,
-        form.last_name ?? student.last_name,
-        form.other_names ?? null,
-        form.guardian_name ?? null,
-        form.guardian_phone ?? null,
-        form.address ?? null,
-        form.gender ?? null,
-        form.date_of_birth ?? null,
-        form.status ?? student.status,
-        student.id
-      ]
-    );
+    await db.writeTransaction(async (tx) => {
+      await tx.execute(
+        `UPDATE students SET
+           first_name = ?, last_name = ?, other_names = ?, guardian_name = ?, guardian_phone = ?,
+           address = ?, gender = ?, date_of_birth = ?, status = ?
+         WHERE id = ?`,
+        [
+          form.first_name ?? student.first_name,
+          form.last_name ?? student.last_name,
+          form.other_names ?? null,
+          form.guardian_name ?? null,
+          form.guardian_phone ?? null,
+          form.address ?? null,
+          form.gender ?? null,
+          form.date_of_birth ?? null,
+          form.status ?? student.status,
+          student.id
+        ]
+      );
+      await logAudit(tx, {
+        schoolId: account.school_id,
+        actorId: account.id,
+        action: 'student.updated',
+        entityType: 'student',
+        entityId: student.id,
+        metadata: { name: `${form.last_name ?? student.last_name} ${form.first_name ?? student.first_name}` }
+      });
+    });
     setSaving(false);
     setSaved(true);
   }

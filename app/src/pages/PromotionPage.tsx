@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { usePowerSync } from '@powersync/react';
 import { useAppContext } from '../lib/AppContext';
 import { useSchoolLedger } from '../hooks/useSchoolLedger';
+import { logAudit } from '../lib/auditLog';
 
 type Action = 'promote' | 'repeat' | 'graduate' | 'withdraw';
 
@@ -145,6 +146,23 @@ export default function PromotionPage() {
             ]);
           }
         }
+        await logAudit(tx, {
+          schoolId: account.school_id,
+          actorId: account.id,
+          action: 'promotion.run',
+          entityType: 'class_arm',
+          entityId: sourceArmId,
+          metadata: {
+            fromLevel: sourceLevel?.name,
+            fromArm: sourceArm?.name,
+            toSessionId: targetSessionId,
+            promoteCount,
+            repeatCount,
+            graduateCount,
+            withdrawCount,
+            studentIds: roster.map((s) => s.id)
+          }
+        });
       });
       setResult(`Done — ${summary}.`);
       setActions({});

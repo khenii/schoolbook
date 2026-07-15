@@ -4,6 +4,7 @@ import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../lib/AppContext';
 import { useSchoolLedger } from '../hooks/useSchoolLedger';
 import { exportToCSV } from '../lib/csv';
+import { logAudit } from '../lib/auditLog';
 
 interface FeeItemRow {
   id: string;
@@ -120,25 +121,36 @@ export default function ClassRegisterPage() {
     }
     setSaving(studentId);
     try {
-      await db.execute(
-        `INSERT INTO payments
-           (id, school_id, student_id, charge_id, amount_paid, date_paid, method, receipt_number, recorded_by,
-            household_transaction_id, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          crypto.randomUUID(),
-          account.school_id,
-          studentId,
-          chargeId,
-          amount,
-          date,
-          method,
-          input?.receipt?.trim() || null,
-          account.id,
-          crypto.randomUUID(),
-          new Date().toISOString()
-        ]
-      );
+      const paymentId = crypto.randomUUID();
+      await db.writeTransaction(async (tx) => {
+        await tx.execute(
+          `INSERT INTO payments
+             (id, school_id, student_id, charge_id, amount_paid, date_paid, method, receipt_number, recorded_by,
+              household_transaction_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            paymentId,
+            account.school_id,
+            studentId,
+            chargeId,
+            amount,
+            date,
+            method,
+            input?.receipt?.trim() || null,
+            account.id,
+            crypto.randomUUID(),
+            new Date().toISOString()
+          ]
+        );
+        await logAudit(tx, {
+          schoolId: account.school_id,
+          actorId: account.id,
+          action: 'payment.recorded',
+          entityType: 'payment',
+          entityId: paymentId,
+          metadata: { studentId, amount, method, via: 'class-register' }
+        });
+      });
       setRowInputs((prev) => ({ ...prev, [studentId]: { amount: '', receipt: '' } }));
     } catch (err) {
       setRowError((prev) => ({

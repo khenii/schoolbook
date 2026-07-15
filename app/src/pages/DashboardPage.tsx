@@ -70,6 +70,7 @@ export default function DashboardPage({ syncStatus }: { syncStatus: string }) {
           <Link to="/household-payment">Household Payment</Link>
           <Link to="/promotion">Promotion</Link>
           <Link to="/reports">Reports</Link>
+          <Link to="/audit-log">Audit Log</Link>
           <Link to="/settings">Settings</Link>
           <span style={{ color: '#64748b' }}>Sync: {syncStatus}</span>
           <button onClick={() => supabase.auth.signOut()}>Log out</button>

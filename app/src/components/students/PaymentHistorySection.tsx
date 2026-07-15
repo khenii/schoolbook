@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../../lib/AppContext';
 import { useStudentLedger } from '../../hooks/useStudentLedger';
+import { logAudit } from '../../lib/auditLog';
 
 type PaymentRow = ReturnType<typeof useStudentLedger>['payments'][number];
 
@@ -34,27 +35,38 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
     setVoiding(r.id);
     try {
       const now = new Date().toISOString();
-      await db.execute(
-        `INSERT INTO payments
-           (id, school_id, student_id, charge_id, amount_paid, date_paid, method, receipt_number, recorded_by,
-            household_transaction_id, void_of_payment_id, void_reason, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          crypto.randomUUID(),
-          account.school_id,
-          studentId,
-          r.charge_id,
-          -r.amount_paid,
-          now.slice(0, 10),
-          r.method,
-          r.receipt_number ? `VOID-${r.receipt_number}` : null,
-          account.id,
-          r.household_transaction_id,
-          r.id,
-          reason.trim(),
-          now
-        ]
-      );
+      const voidId = crypto.randomUUID();
+      await db.writeTransaction(async (tx) => {
+        await tx.execute(
+          `INSERT INTO payments
+             (id, school_id, student_id, charge_id, amount_paid, date_paid, method, receipt_number, recorded_by,
+              household_transaction_id, void_of_payment_id, void_reason, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            voidId,
+            account.school_id,
+            studentId,
+            r.charge_id,
+            -r.amount_paid,
+            now.slice(0, 10),
+            r.method,
+            r.receipt_number ? `VOID-${r.receipt_number}` : null,
+            account.id,
+            r.household_transaction_id,
+            r.id,
+            reason.trim(),
+            now
+          ]
+        );
+        await logAudit(tx, {
+          schoolId: account.school_id,
+          actorId: account.id,
+          action: 'payment.voided',
+          entityType: 'payment',
+          entityId: r.id,
+          metadata: { studentId, amount: r.amount_paid, reason: reason.trim() }
+        });
+      });
     } finally {
       setVoiding(null);
     }

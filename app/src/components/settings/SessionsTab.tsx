@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../../lib/AppContext';
 import { generateRecurringChargesForTerm } from '../../lib/charges';
+import { logAudit } from '../../lib/auditLog';
 
 interface SessionRow {
   id: string;
@@ -63,6 +64,14 @@ export default function SessionsTab() {
             [crypto.randomUUID(), schoolId, sessionId, termNames[i], makeActive && i === 0 ? 1 : 0, now]
           );
         }
+        await logAudit(tx, {
+          schoolId,
+          actorId: account.id,
+          action: 'session.created',
+          entityType: 'session',
+          entityId: sessionId,
+          metadata: { name: trimmed, makeActive }
+        });
       });
       setName('');
       setAdding(false);
@@ -76,6 +85,13 @@ export default function SessionsTab() {
     await db.writeTransaction(async (tx) => {
       await tx.execute('UPDATE sessions SET is_active = 0 WHERE is_active = 1');
       await tx.execute('UPDATE sessions SET is_active = 1 WHERE id = ?', [id]);
+      await logAudit(tx, {
+        schoolId,
+        actorId: account.id,
+        action: 'session.activated',
+        entityType: 'session',
+        entityId: id
+      });
     });
   }
 
@@ -83,6 +99,13 @@ export default function SessionsTab() {
     await db.writeTransaction(async (tx) => {
       await tx.execute('UPDATE terms SET is_current = 0 WHERE is_current = 1');
       await tx.execute('UPDATE terms SET is_current = 1 WHERE id = ?', [termId]);
+      await logAudit(tx, {
+        schoolId,
+        actorId: account.id,
+        action: 'term.set_current',
+        entityType: 'term',
+        entityId: termId
+      });
     });
   }
 
@@ -97,9 +120,18 @@ export default function SessionsTab() {
     setGenerating(term.id);
     setTermMessage((prev) => ({ ...prev, [term.id]: '' }));
     try {
-      const result = await db.writeTransaction((tx) =>
-        generateRecurringChargesForTerm(tx, { schoolId, termId: term.id, sessionId: term.session_id })
-      );
+      const result = await db.writeTransaction(async (tx) => {
+        const r = await generateRecurringChargesForTerm(tx, { schoolId, termId: term.id, sessionId: term.session_id });
+        await logAudit(tx, {
+          schoolId,
+          actorId: account.id,
+          action: 'charges.recurring_generated',
+          entityType: 'term',
+          entityId: term.id,
+          metadata: { generated: r.generated, skipped: r.skipped }
+        });
+        return r;
+      });
       setTermMessage((prev) => ({
         ...prev,
         [term.id]: `${result.generated} charge${result.generated === 1 ? '' : 's'} generated, ${result.skipped} already up to date.`

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../../lib/AppContext';
 import { useActiveSession } from '../../hooks/useActiveSession';
+import { logAudit } from '../../lib/auditLog';
 
 interface ClassLevel {
   id: string;
@@ -60,10 +61,20 @@ export default function ClassesArmsTab() {
     const nextOrder = levels.length;
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    await db.execute(
-      'INSERT INTO class_levels (id, school_id, name, sort_order, created_at) VALUES (?, ?, ?, ?, ?)',
-      [id, schoolId, name, nextOrder, now]
-    );
+    await db.writeTransaction(async (tx) => {
+      await tx.execute(
+        'INSERT INTO class_levels (id, school_id, name, sort_order, created_at) VALUES (?, ?, ?, ?, ?)',
+        [id, schoolId, name, nextOrder, now]
+      );
+      await logAudit(tx, {
+        schoolId,
+        actorId: account.id,
+        action: 'class_level.added',
+        entityType: 'class_level',
+        entityId: id,
+        metadata: { name }
+      });
+    });
     setNewLevelName('');
     setAddingLevel(false);
   }
@@ -84,9 +95,18 @@ export default function ClassesArmsTab() {
   async function removeLevel(id: string) {
     const hasArms = armsByLevel(id).length > 0;
     if (hasArms && !confirm('This level has arms configured. Remove it and its arms anyway?')) return;
+    const levelName = levels.find((l) => l.id === id)?.name;
     await db.writeTransaction(async (tx) => {
       await tx.execute('DELETE FROM class_arms WHERE class_level_id = ?', [id]);
       await tx.execute('DELETE FROM class_levels WHERE id = ?', [id]);
+      await logAudit(tx, {
+        schoolId,
+        actorId: account.id,
+        action: 'class_level.removed',
+        entityType: 'class_level',
+        entityId: id,
+        metadata: { name: levelName }
+      });
     });
   }
 
@@ -114,15 +134,36 @@ export default function ClassesArmsTab() {
     }
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    await db.execute(
-      'INSERT INTO class_arms (id, school_id, class_level_id, session_id, name, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, schoolId, levelId, viewingSessionId, name, now]
-    );
+    await db.writeTransaction(async (tx) => {
+      await tx.execute(
+        'INSERT INTO class_arms (id, school_id, class_level_id, session_id, name, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, schoolId, levelId, viewingSessionId, name, now]
+      );
+      await logAudit(tx, {
+        schoolId,
+        actorId: account.id,
+        action: 'class_arm.added',
+        entityType: 'class_arm',
+        entityId: id,
+        metadata: { name, levelId }
+      });
+    });
     setNewArmName((prev) => ({ ...prev, [levelId]: '' }));
   }
 
   async function removeArm(id: string) {
-    await db.execute('DELETE FROM class_arms WHERE id = ?', [id]);
+    const armName = arms.find((a) => a.id === id)?.name;
+    await db.writeTransaction(async (tx) => {
+      await tx.execute('DELETE FROM class_arms WHERE id = ?', [id]);
+      await logAudit(tx, {
+        schoolId,
+        actorId: account.id,
+        action: 'class_arm.removed',
+        entityType: 'class_arm',
+        entityId: id,
+        metadata: { name: armName }
+      });
+    });
   }
 
   if (!viewingSessionId) {

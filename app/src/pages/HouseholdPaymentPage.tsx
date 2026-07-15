@@ -5,6 +5,7 @@ import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../lib/AppContext';
 import { useSchoolLedger } from '../hooks/useSchoolLedger';
 import { normalizePhone } from '../lib/households';
+import { logAudit } from '../lib/auditLog';
 
 interface HouseholdRow {
   id: string;
@@ -313,6 +314,20 @@ export default function HouseholdPaymentPage() {
             );
           }
         }
+        await logAudit(tx, {
+          schoolId: account.school_id,
+          actorId: account.id,
+          action: 'payment.recorded',
+          entityType: 'payment',
+          entityId: transactionId,
+          metadata: {
+            total,
+            method,
+            studentCount: perChildAllocations.length,
+            studentIds: perChildAllocations.map((c) => c.studentId),
+            via: 'household-payment'
+          }
+        });
       });
 
       setSuccess(

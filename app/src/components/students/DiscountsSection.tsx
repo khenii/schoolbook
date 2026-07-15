@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../../lib/AppContext';
+import { logAudit } from '../../lib/auditLog';
 
 interface DiscountRow {
   id: string;
@@ -80,11 +81,22 @@ export default function DiscountsSection({ studentId }: { studentId: string }) {
     }
     setSaving(true);
     try {
-      await db.execute(
-        `INSERT INTO discounts (id, school_id, student_id, fee_item_id, type, value, reason, applied_by, active, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-        [crypto.randomUUID(), schoolId, studentId, feeItemId, type, numValue, reason.trim(), account.id, new Date().toISOString()]
-      );
+      const discountId = crypto.randomUUID();
+      await db.writeTransaction(async (tx) => {
+        await tx.execute(
+          `INSERT INTO discounts (id, school_id, student_id, fee_item_id, type, value, reason, applied_by, active, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+          [discountId, schoolId, studentId, feeItemId, type, numValue, reason.trim(), account.id, new Date().toISOString()]
+        );
+        await logAudit(tx, {
+          schoolId,
+          actorId: account.id,
+          action: 'discount.applied',
+          entityType: 'discount',
+          entityId: discountId,
+          metadata: { studentId, feeItemId: feeItemId, type, value: numValue, reason: reason.trim() }
+        });
+      });
       resetForm();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -96,10 +108,20 @@ export default function DiscountsSection({ studentId }: { studentId: string }) {
   async function handleRemove(d: DiscountRow) {
     setRemoving(d.id);
     try {
-      await db.execute('UPDATE discounts SET active = 0, removed_at = ? WHERE id = ?', [
-        new Date().toISOString(),
-        d.id
-      ]);
+      await db.writeTransaction(async (tx) => {
+        await tx.execute('UPDATE discounts SET active = 0, removed_at = ? WHERE id = ?', [
+          new Date().toISOString(),
+          d.id
+        ]);
+        await logAudit(tx, {
+          schoolId,
+          actorId: account.id,
+          action: 'discount.removed',
+          entityType: 'discount',
+          entityId: d.id,
+          metadata: { studentId, feeItemId: d.fee_item_id }
+        });
+      });
     } finally {
       setRemoving(null);
     }

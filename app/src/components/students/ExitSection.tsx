@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { usePowerSync } from '@powersync/react';
+import { useAppContext } from '../../lib/AppContext';
 import { useStudentLedger } from '../../hooks/useStudentLedger';
+import { logAudit } from '../../lib/auditLog';
 
 interface StudentSummary {
   id: string;
@@ -13,6 +15,7 @@ type ExitStatus = 'withdrawn' | 'graduated';
 
 export default function ExitSection({ student }: { student: StudentSummary }) {
   const db = usePowerSync();
+  const { account } = useAppContext();
   const { totalOutstanding, totalArrears, currentTermBalance, payments } = useStudentLedger(student.id);
 
   const [open, setOpen] = useState(false);
@@ -28,12 +31,22 @@ export default function ExitSection({ student }: { student: StudentSummary }) {
   async function handleConfirm() {
     setSaving(true);
     try {
-      await db.execute('UPDATE students SET status = ?, status_changed_at = ?, status_reason = ? WHERE id = ?', [
-        exitStatus,
-        new Date().toISOString(),
-        reason.trim() || null,
-        student.id
-      ]);
+      await db.writeTransaction(async (tx) => {
+        await tx.execute('UPDATE students SET status = ?, status_changed_at = ?, status_reason = ? WHERE id = ?', [
+          exitStatus,
+          new Date().toISOString(),
+          reason.trim() || null,
+          student.id
+        ]);
+        await logAudit(tx, {
+          schoolId: account.school_id,
+          actorId: account.id,
+          action: exitStatus === 'withdrawn' ? 'student.withdrawn' : 'student.graduated',
+          entityType: 'student',
+          entityId: student.id,
+          metadata: { reason: reason.trim() || null, outstandingBalance: totalOutstanding }
+        });
+      });
       setOpen(false);
       setReason('');
       setAcknowledged(false);
@@ -45,12 +58,21 @@ export default function ExitSection({ student }: { student: StudentSummary }) {
   async function handleReactivate() {
     setReactivating(true);
     try {
-      await db.execute('UPDATE students SET status = ?, status_changed_at = ?, status_reason = ? WHERE id = ?', [
-        'existing',
-        new Date().toISOString(),
-        'Reactivated',
-        student.id
-      ]);
+      await db.writeTransaction(async (tx) => {
+        await tx.execute('UPDATE students SET status = ?, status_changed_at = ?, status_reason = ? WHERE id = ?', [
+          'existing',
+          new Date().toISOString(),
+          'Reactivated',
+          student.id
+        ]);
+        await logAudit(tx, {
+          schoolId: account.school_id,
+          actorId: account.id,
+          action: 'student.reactivated',
+          entityType: 'student',
+          entityId: student.id
+        });
+      });
     } finally {
       setReactivating(false);
     }
