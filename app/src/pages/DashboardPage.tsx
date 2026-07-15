@@ -66,6 +66,7 @@ export default function DashboardPage({ syncStatus }: { syncStatus: string }) {
         <div style={{ fontSize: 13, color: '#64748b' }}>{session.user.email}</div>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 13 }}>
           <Link to="/students">Students</Link>
+          <Link to="/reports">Reports</Link>
           <Link to="/settings">Settings</Link>
           <span style={{ color: '#64748b' }}>Sync: {syncStatus}</span>
           <button onClick={() => supabase.auth.signOut()}>Log out</button>
@@ -162,7 +163,12 @@ export default function DashboardPage({ syncStatus }: { syncStatus: string }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20, alignItems: 'start' }}>
         <div>
           <div style={panelStyle}>
-            <div style={panelHeadStyle}>Top defaulters</div>
+            <div style={panelHeadStyle}>
+              <span>Top defaulters</span>
+              <Link to="/reports" style={{ fontSize: 12, fontWeight: 600 }}>
+                View full report →
+              </Link>
+            </div>
             {stats.topDefaulters.length === 0 ? (
               <div style={{ padding: 16, color: '#64748b', fontSize: 13 }}>No outstanding balances. 🎉</div>
             ) : (

@@ -2,53 +2,10 @@ import { useMemo } from 'react';
 import { useQuery } from '@powersync/react';
 import { useAppContext } from '../lib/AppContext';
 import { useActiveSession } from './useActiveSession';
+import { useSchoolLedger } from './useSchoolLedger';
 
 interface SchoolRow {
   name: string;
-}
-
-interface TermRow {
-  id: string;
-  name: string;
-  is_current: number;
-}
-
-interface StudentRow {
-  id: string;
-  first_name: string;
-  last_name: string;
-  status: string;
-  current_class_arm_id: string | null;
-  created_at: string;
-}
-
-interface ClassArmRow {
-  id: string;
-  class_level_id: string;
-  name: string;
-}
-
-interface ClassLevelRow {
-  id: string;
-  name: string;
-  sort_order: number;
-}
-
-interface ChargeRow {
-  id: string;
-  student_id: string;
-  term_id: string;
-  class_level_id: string;
-  amount_expected: number;
-}
-
-interface PaymentRow {
-  id: string;
-  charge_id: string;
-  student_id: string;
-  amount_paid: number;
-  date_paid: string;
-  created_at: string;
 }
 
 export interface DefaulterRow {
@@ -73,79 +30,28 @@ export interface ClassCollectionRow {
   pct: number | null;
 }
 
-const ENROLLED_STATUSES = new Set(['new', 'existing']);
-
-// School-wide aggregates for the dashboard. Pulls raw rows from local
-// PowerSync SQLite and does the aggregation client-side in JS rather than
-// with SQL GROUP BY — school-scale data (hundreds to low thousands of
-// rows) makes this cheap, and it lets this share the exact same
-// "balance = amount_expected - sum(payments)" logic as useStudentLedger
-// instead of re-deriving it in SQL.
+// School-wide aggregates for the dashboard, built on useSchoolLedger's
+// shared charge-balance computation so these numbers can never drift from
+// what Reports shows for the same term.
 export function useDashboardStats() {
   const { account } = useAppContext();
   const { session: activeSession } = useActiveSession();
+  const { studentMap, enrolledStudents, levels, armMap, classLabel, currentTerm, chargeBalances, payments, charges } =
+    useSchoolLedger();
 
   const { data: schoolRows } = useQuery<SchoolRow>('SELECT name FROM schools WHERE id = ?', [account.school_id]);
-  const { data: terms } = useQuery<TermRow>('SELECT id, name, is_current FROM terms');
-  const { data: students } = useQuery<StudentRow>(
-    'SELECT id, first_name, last_name, status, current_class_arm_id, created_at FROM students'
-  );
-  const { data: arms } = useQuery<ClassArmRow>('SELECT id, class_level_id, name FROM class_arms');
-  const { data: levels } = useQuery<ClassLevelRow>('SELECT id, name, sort_order FROM class_levels ORDER BY sort_order ASC');
-  const { data: charges } = useQuery<ChargeRow>(
-    'SELECT id, student_id, term_id, class_level_id, amount_expected FROM charges'
-  );
-  const { data: payments } = useQuery<PaymentRow>(
-    'SELECT id, charge_id, student_id, amount_paid, date_paid, created_at FROM payments ORDER BY created_at DESC'
-  );
-
   const schoolName = schoolRows[0]?.name ?? '';
-  const currentTerm = terms.find((t) => t.is_current) ?? null;
-
-  const classLabel = useMemo(() => {
-    const armMap = new Map(arms.map((a) => [a.id, a]));
-    const levelMap = new Map(levels.map((l) => [l.id, l]));
-    return (armId: string | null) => {
-      if (!armId) return '—';
-      const arm = armMap.get(armId);
-      if (!arm) return '—';
-      const level = levelMap.get(arm.class_level_id);
-      return `${level?.name ?? ''} ${arm.name}`.trim();
-    };
-  }, [arms, levels]);
-
-  const armToLevelId = useMemo(() => new Map(arms.map((a) => [a.id, a.class_level_id])), [arms]);
-
-  const paidByCharge = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const p of payments) {
-      map.set(p.charge_id, (map.get(p.charge_id) ?? 0) + p.amount_paid);
-    }
-    return map;
-  }, [payments]);
-
-  const enrolledStudents = useMemo(() => students.filter((s) => ENROLLED_STATUSES.has(s.status)), [students]);
 
   const levelsWithStudents = useMemo(() => {
     const ids = new Set<string>();
     for (const s of enrolledStudents) {
       if (s.current_class_arm_id) {
-        const levelId = armToLevelId.get(s.current_class_arm_id);
+        const levelId = armMap.get(s.current_class_arm_id)?.class_level_id;
         if (levelId) ids.add(levelId);
       }
     }
     return ids.size;
-  }, [enrolledStudents, armToLevelId]);
-
-  const chargeBalances = useMemo(
-    () =>
-      charges.map((c) => ({
-        ...c,
-        paid: paidByCharge.get(c.id) ?? 0,
-        balance: c.amount_expected - (paidByCharge.get(c.id) ?? 0)
-      })),
-    [charges, paidByCharge]
-  );
+  }, [enrolledStudents, armMap]);
 
   const currentTermId = currentTerm?.id ?? null;
   const currentTermCharges = useMemo(
@@ -179,7 +85,6 @@ export function useDashboardStats() {
       if (c.term_id !== currentTermId) existing.hasArrears = true;
       byStudent.set(c.student_id, existing);
     }
-    const studentMap = new Map(students.map((s) => [s.id, s]));
     return Array.from(byStudent.entries())
       .map(([studentId, info]) => {
         const s = studentMap.get(studentId);
@@ -193,10 +98,9 @@ export function useDashboardStats() {
       })
       .sort((a, b) => b.amountOwed - a.amountOwed)
       .slice(0, 5);
-  }, [chargeBalances, students, classLabel, currentTermId]);
+  }, [chargeBalances, studentMap, classLabel, currentTermId]);
 
   const recentActivity = useMemo<ActivityRow[]>(() => {
-    const studentMap = new Map(students.map((s) => [s.id, s]));
     const chargeMap = new Map(charges.map((c) => [c.id, c]));
 
     const paymentEvents: ActivityRow[] = payments
@@ -213,7 +117,7 @@ export function useDashboardStats() {
         };
       });
 
-    const studentEvents: ActivityRow[] = [...students]
+    const studentEvents: ActivityRow[] = [...studentMap.values()]
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .slice(0, 4)
       .map((s) => ({
@@ -225,7 +129,7 @@ export function useDashboardStats() {
     return [...paymentEvents, ...studentEvents]
       .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
       .slice(0, 6);
-  }, [payments, students, charges, classLabel]);
+  }, [payments, studentMap, charges, classLabel]);
 
   const classCollectionRates = useMemo<ClassCollectionRow[]>(() => {
     const byLevel = new Map<string, { expected: number; collected: number }>();

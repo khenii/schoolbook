@@ -11,6 +11,7 @@ import AuthScreen from './components/AuthScreen';
 import SchoolSetupForm from './components/SchoolSetupForm';
 import ClassLevelSetup from './components/ClassLevelSetup';
 import DashboardPage from './pages/DashboardPage';
+import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import StudentsPage from './pages/StudentsPage';
 import AddStudentPage from './pages/AddStudentPage';
@@ -84,6 +85,7 @@ function Shell() {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<DashboardPage syncStatus={syncStatus} />} />
+              <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/students" element={<StudentsPage />} />
               <Route path="/students/new" element={<AddStudentPage />} />
