@@ -51,8 +51,18 @@ function Shell() {
         });
       }
 
-      const account = await getMyAccount(session.user.id);
-      setState(account ? { step: 'ready', session, account } : { step: 'school-setup' });
+      try {
+        const account = await getMyAccount(session.user.id);
+        setState(account ? { step: 'ready', session, account } : { step: 'school-setup' });
+      } catch (err) {
+        // A transient failure here (typically: offline, and nothing synced
+        // locally yet for a brand-new device) should never tear down an
+        // already-working screen — e.g. a background token-refresh event
+        // firing while the user is mid-session, offline, editing data. Leave
+        // whatever's currently on screen alone; the next auth event or the
+        // `online` retry below will resolve it once possible.
+        console.error('Account resolution failed, leaving current screen as-is:', err);
+      }
     }
 
     supabase.auth.getSession().then(({ data }) => resolve(data.session));
@@ -60,9 +70,19 @@ function Shell() {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((_event, session) => resolve(session));
 
+    // Belt-and-suspenders for the one case `getMyAccount` can't serve
+    // locally (first-ever login on a fresh device, offline before any sync
+    // has run): retry as soon as the browser reports connectivity again,
+    // rather than leaving the user stuck until they manually reload.
+    function handleOnline() {
+      supabase.auth.getSession().then(({ data }) => resolve(data.session));
+    }
+    window.addEventListener('online', handleOnline);
+
     return () => {
       subscription.unsubscribe();
       unsubscribeSync?.();
+      window.removeEventListener('online', handleOnline);
     };
   }, []);
 
