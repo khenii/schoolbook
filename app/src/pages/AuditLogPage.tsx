@@ -102,12 +102,17 @@ function parseMetadata(raw: string | null): Record<string, unknown> | null {
 
 const MONEY_KEYS = new Set(['amount', 'total', 'value', 'outstandingBalance']);
 
+// Matches any internal foreign-key-style field written into metadata
+// (studentId, feeItemId, toSessionId, studentIds, ...) so raw database UUIDs
+// never surface in this user-facing log — see formatDetail below.
+const ID_KEY = /(^id$|Ids?$)/;
+
 function formatDetail(meta: Record<string, unknown> | null): { detail: string; reason?: string } {
   if (!meta) return { detail: '—' };
   const reason = typeof meta.reason === 'string' && meta.reason.trim() ? meta.reason.trim() : undefined;
   const notes = typeof meta.notes === 'string' && meta.notes.trim() ? meta.notes.trim() : undefined;
   const parts = Object.entries(meta)
-    .filter(([k, v]) => k !== 'reason' && k !== 'notes' && k !== 'studentIds' && v !== null && v !== undefined && v !== '')
+    .filter(([k, v]) => k !== 'reason' && k !== 'notes' && !ID_KEY.test(k) && v !== null && v !== undefined && v !== '')
     .map(([k, v]) => {
       if (MONEY_KEYS.has(k) && typeof v === 'number') return `₦${v.toLocaleString()}`;
       if (Array.isArray(v)) return `${v.length} item${v.length === 1 ? '' : 's'}`;
