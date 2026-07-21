@@ -156,6 +156,21 @@ export default function AddStudentPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, nextAdmissionNumber]);
 
+  // Postgres already rejects a genuine duplicate at (school_id,
+  // admission_number) — that constraint has been in the schema since Phase
+  // 0. What it can't do is warn *before* a save is attempted, which matters
+  // for an offline-first app: a rejected write just sits queued/retrying
+  // rather than failing loudly in front of whoever's typing. This checks the
+  // same local data the suggestion above reads from, so a collision (e.g.
+  // two offline devices both proposing TLAA-014 before either has synced)
+  // is caught immediately on this device instead of surfacing later as a
+  // silent stuck sync.
+  const admissionNumberTaken = useMemo(() => {
+    const trimmed = admissionNumber.trim().toLowerCase();
+    if (!trimmed) return false;
+    return admissionNumberRows.some((row) => (row.admission_number ?? '').trim().toLowerCase() === trimmed);
+  }, [admissionNumber, admissionNumberRows]);
+
   const siblingMatches = useMemo(() => {
     const normalized = normalizePhone(guardianPhone);
     if (!normalized) return [];
@@ -216,6 +231,10 @@ export default function AddStudentPanel({
     }
     if (!firstName.trim() || !lastName.trim() || !admissionNumber.trim()) {
       setError('First name, last name, and admission number are required.');
+      return;
+    }
+    if (admissionNumberTaken) {
+      setError('That admission number is already in use — pick a different one.');
       return;
     }
 
@@ -349,6 +368,11 @@ export default function AddStudentPanel({
               onChange={(e) => setAdmissionNumber(e.target.value)}
               placeholder={nextAdmissionNumber || 'e.g. BPC-0142'}
             />
+            {admissionNumberTaken && (
+              <p className="field-error" style={{ display: 'block', marginTop: 4 }}>
+                Already in use by another student.
+              </p>
+            )}
           </div>
 
           <div className="field">
@@ -502,7 +526,12 @@ export default function AddStudentPanel({
           )}
         </div>
         <div className="panel-foot">
-          <button className="btn-primary" style={{ width: '100%' }} onClick={handleSubmit} disabled={saving}>
+          <button
+            className="btn-primary"
+            style={{ width: '100%' }}
+            onClick={handleSubmit}
+            disabled={saving || admissionNumberTaken}
+          >
             {saving ? 'Saving…' : 'Add student & generate charges'}
           </button>
         </div>
