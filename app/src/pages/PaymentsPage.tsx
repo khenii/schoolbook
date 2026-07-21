@@ -655,17 +655,19 @@ export default function PaymentsPage() {
                   {isVoidRow ? (
                     <span className="void-tag">VOIDED</span>
                   ) : (
-                    <>
-                      <Link className="void-link" style={{ color: 'var(--slate)' }} to={`/receipt/${g.key}`}>
+                    <div className="row-actions">
+                      <Link className="row-action" to={`/receipt/${g.key}`}>
                         Receipt
                       </Link>
-                      <br />
                       {g.voidable && (
-                        <span className="void-link" onClick={() => openVoid(g)}>
-                          Void
-                        </span>
+                        <>
+                          <span className="row-action-sep" />
+                          <span className="row-action danger" onClick={() => openVoid(g)}>
+                            Void
+                          </span>
+                        </>
                       )}
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
