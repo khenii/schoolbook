@@ -9,6 +9,7 @@ import { logAudit } from '../../lib/auditLog';
 interface TermRow {
   id: string;
   name: string;
+  is_current: number;
 }
 
 interface ClassArmRow {
@@ -71,7 +72,7 @@ export default function AddStudentPanel({
   const { session: activeSession } = useActiveSession();
 
   const { data: terms } = useQuery<TermRow>(
-    'SELECT id, name FROM terms WHERE session_id = ? ORDER BY created_at ASC',
+    'SELECT id, name, is_current FROM terms WHERE session_id = ? ORDER BY created_at ASC',
     [activeSession?.id ?? '']
   );
   const { data: arms } = useQuery<ClassArmRow>(
@@ -123,7 +124,14 @@ export default function AddStudentPanel({
   const [error, setError] = useState<string | null>(null);
   const [linkAsHousehold, setLinkAsHousehold] = useState(true);
 
-  const effectiveTermId = termId || terms[0]?.id || '';
+  // Defaults the picker to the school's actual current term (Settings →
+  // Sessions) rather than just the chronologically-first term — previously
+  // this fell back to terms[0], which silently pre-selected Term 1 even for
+  // a school now on Term 2 or 3. Falls back to terms[0] only if no term is
+  // marked current yet (e.g. brand-new session with none set).
+  const currentTerm = terms.find((t) => t.is_current === 1) ?? null;
+  const effectiveTermId = termId || currentTerm?.id || terms[0]?.id || '';
+  const termMismatch = currentTerm !== null && effectiveTermId !== currentTerm.id;
   const effectiveArmId = classArmId || sortedArms[0]?.id || '';
   const effectiveArm = sortedArms.find((a) => a.id === effectiveArmId) ?? null;
 
@@ -487,13 +495,26 @@ export default function AddStudentPanel({
           </div>
           <div className="field">
             <label>Enrolling term (for charge generation)</label>
+            {currentTerm && (
+              <p style={{ fontSize: 11.5, color: 'var(--slate-soft)', margin: '0 0 5px' }}>
+                Current term: <strong>{currentTerm.name}</strong>
+              </p>
+            )}
             <select value={effectiveTermId} onChange={(e) => setTermId(e.target.value)}>
               {terms.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
+                  {t.is_current === 1 ? ' (current)' : ''}
                 </option>
               ))}
             </select>
+            {termMismatch && (
+              <div className="term-mismatch-note">
+                ⚠ You're generating charges for <strong>{terms.find((t) => t.id === effectiveTermId)?.name}</strong>,
+                not the current term (<strong>{currentTerm!.name}</strong>). Double-check this is intentional before
+                saving.
+              </div>
+            )}
           </div>
 
           <div className="divider-label">Charges generated for this term</div>
