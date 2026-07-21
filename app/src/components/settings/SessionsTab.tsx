@@ -88,6 +88,28 @@ export default function SessionsTab() {
     await db.writeTransaction(async (tx) => {
       await tx.execute('UPDATE sessions SET is_active = 0 WHERE is_active = 1');
       await tx.execute('UPDATE sessions SET is_active = 1 WHERE id = ?', [id]);
+
+      // "Current term" only makes sense relative to the active session —
+      // switching sessions without touching it would leave the dashboard
+      // anchored to a term in a session nobody's enrolling into anymore.
+      // Keep this session's own current term if it already had one
+      // (re-activating a session you switched away from earlier), otherwise
+      // default to its earliest term, same as a brand-new session gets.
+      const [existingCurrent] = await tx.getAll<{ id: string }>(
+        'SELECT id FROM terms WHERE session_id = ? AND is_current = 1 LIMIT 1',
+        [id]
+      );
+      await tx.execute('UPDATE terms SET is_current = 0 WHERE is_current = 1');
+      if (existingCurrent) {
+        await tx.execute('UPDATE terms SET is_current = 1 WHERE id = ?', [existingCurrent.id]);
+      } else {
+        await tx.execute(
+          `UPDATE terms SET is_current = 1
+           WHERE id = (SELECT id FROM terms WHERE session_id = ? ORDER BY created_at ASC LIMIT 1)`,
+          [id]
+        );
+      }
+
       await logAudit(tx, {
         schoolId,
         actorId: account.id,
@@ -100,6 +122,20 @@ export default function SessionsTab() {
 
   async function setCurrentTerm(termId: string) {
     await db.writeTransaction(async (tx) => {
+      // Defense in depth: the UI only offers this for terms in the active
+      // session, but enforce it here too rather than trusting the caller —
+      // a term's "current" flag drifting from its session's "active" flag
+      // is exactly the inconsistency this whole change exists to prevent.
+      const [term] = await tx.getAll<{ session_id: string }>('SELECT session_id FROM terms WHERE id = ?', [termId]);
+      if (!term) return;
+      const [session] = await tx.getAll<{ is_active: number }>(
+        'SELECT is_active FROM sessions WHERE id = ?',
+        [term.session_id]
+      );
+      if (!session?.is_active) {
+        throw new Error('Only a term in the active session can be set as current — activate that session first.');
+      }
+
       await tx.execute('UPDATE terms SET is_current = 0 WHERE is_current = 1');
       await tx.execute('UPDATE terms SET is_current = 1 WHERE id = ?', [termId]);
       await logAudit(tx, {
@@ -165,7 +201,7 @@ export default function SessionsTab() {
         const sessionTerms = terms.filter((t) => t.session_id === s.id);
         const isOpen = openSessionId === s.id;
         return (
-          <div className={`level-card${isOpen ? ' open' : ''}`} key={s.id}>
+          <div className={`level-card${isOpen ? ' open' : ''}${s.is_active ? ' session-active' : ' session-inactive'}`} key={s.id}>
             <div className="level-head" onClick={() => setOpenSessionId(isOpen ? null : s.id)}>
               <div className="level-title">
                 <div className="name">{s.name}</div>
@@ -195,6 +231,14 @@ export default function SessionsTab() {
                 recurring fee items (e.g. School Fees). One-off and new-students-only items are never generated
                 here — those only happen once, at enrollment. "Current term" drives the dashboard, reports, and each
                 student's balance split — only one term across the whole school can be current at a time.
+                {!s.is_active && (
+                  <>
+                    {' '}
+                    This session isn't active, so its terms are shown for reference and you can still backfill
+                    recurring charges here, but none of them can be set as current — activate this session above
+                    first if you want to change that.
+                  </>
+                )}
               </p>
               {sessionTerms.map((t) => (
                 <div className="arm-row" key={t.id} style={{ flexWrap: 'wrap' }}>
@@ -206,7 +250,7 @@ export default function SessionsTab() {
                       </span>
                     ) : null}
                   </div>
-                  {!t.is_current && (
+                  {!t.is_current && s.is_active && (
                     <span className="mini-btn" onClick={() => setCurrentTerm(t.id)}>
                       Set as current
                     </span>
