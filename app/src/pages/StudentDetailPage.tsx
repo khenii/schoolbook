@@ -49,6 +49,10 @@ function initials(first: string, last: string) {
   return `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase() || '—';
 }
 
+// Matches AddStudentPanel's gender options, so a value picked on enrollment
+// and a value picked here later always come from the same short list.
+const GENDER_OPTIONS = ['Female', 'Male'];
+
 export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const db = usePowerSync();
@@ -462,7 +466,17 @@ export default function StudentDetailPage() {
               </div>
               <div className="field">
                 <label>Gender</label>
-                <input value={editForm.gender ?? ''} onChange={(e) => setEditForm((f) => ({ ...f, gender: e.target.value }))} />
+                <select
+                  value={editForm.gender ?? ''}
+                  onChange={(e) => setEditForm((f) => ({ ...f, gender: e.target.value }))}
+                >
+                  <option value="">Select gender</option>
+                  {GENDER_OPTIONS.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="field">

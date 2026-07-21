@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePowerSync, useQuery } from '@powersync/react';
 import { useAppContext } from '../../lib/AppContext';
 import { useActiveSession } from '../../hooks/useActiveSession';
@@ -35,6 +35,20 @@ interface FeeItemPricingRow {
   class_level_id: string;
   amount: number;
 }
+
+// "The Lords Army Academy" -> "TLAA". Every word's first letter, uppercased
+// — no stopword filtering, since a short school name like "The Grange
+// School" losing its "T" would make the prefix less recognizable, not more.
+function schoolInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+}
+
+const GENDER_OPTIONS = ['Female', 'Male'];
 
 // The slide-over "Add student" panel from 04-students.html — mounted on
 // StudentsPage rather than a standalone route, so saving lands you right
@@ -80,6 +94,11 @@ export default function AddStudentPanel({
   const { data: pricing } = useQuery<FeeItemPricingRow>(
     'SELECT fee_item_id, class_level_id, amount FROM fee_item_pricing'
   );
+  const { data: schoolRows } = useQuery<{ name: string }>('SELECT name FROM schools WHERE id = ?', [schoolId]);
+  const schoolName = schoolRows[0]?.name ?? '';
+  const { data: admissionNumberRows } = useQuery<{ admission_number: string }>(
+    'SELECT admission_number FROM students'
+  );
 
   const levelName = (id: string) => levels.find((l) => l.id === id)?.name ?? '';
   const sortedArms = [...arms].sort((a, b) => {
@@ -107,6 +126,35 @@ export default function AddStudentPanel({
   const effectiveTermId = termId || terms[0]?.id || '';
   const effectiveArmId = classArmId || sortedArms[0]?.id || '';
   const effectiveArm = sortedArms.find((a) => a.id === effectiveArmId) ?? null;
+
+  // Suggests the next sequential number for this school's prefix (e.g.
+  // "TLAA-001", "TLAA-002", ...) by scanning existing admission numbers for
+  // the highest one already using that prefix. Pre-fills the field below but
+  // stays fully editable — staff can override for a special case, and this
+  // recomputes each time the panel is (re)opened rather than being fixed at
+  // mount, so it stays current as students get added.
+  const nextAdmissionNumber = useMemo(() => {
+    const prefix = schoolInitials(schoolName);
+    if (!prefix) return '';
+    const pattern = new RegExp(`^${prefix}-(\\d+)$`);
+    let max = 0;
+    for (const row of admissionNumberRows) {
+      const match = pattern.exec(row.admission_number ?? '');
+      if (match) max = Math.max(max, parseInt(match[1], 10));
+    }
+    return `${prefix}-${String(max + 1).padStart(3, '0')}`;
+  }, [schoolName, admissionNumberRows]);
+
+  // Auto-fill on open, but only while the field is still untouched — never
+  // clobbers something staff already typed, and re-fires once the school
+  // name / admission numbers query resolves if that happens after `open`
+  // flips true.
+  useEffect(() => {
+    if (open && !admissionNumber && nextAdmissionNumber) {
+      setAdmissionNumber(nextAdmissionNumber);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, nextAdmissionNumber]);
 
   const siblingMatches = useMemo(() => {
     const normalized = normalizePhone(guardianPhone);
@@ -299,7 +347,7 @@ export default function AddStudentPanel({
             <input
               value={admissionNumber}
               onChange={(e) => setAdmissionNumber(e.target.value)}
-              placeholder="e.g. BPC-0142"
+              placeholder={nextAdmissionNumber || 'e.g. BPC-0142'}
             />
           </div>
 
@@ -403,7 +451,14 @@ export default function AddStudentPanel({
             </div>
             <div className="field">
               <label>Gender</label>
-              <input value={gender} onChange={(e) => setGender(e.target.value)} />
+              <select value={gender} onChange={(e) => setGender(e.target.value)}>
+                <option value="">Select gender</option>
+                {GENDER_OPTIONS.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="field">
