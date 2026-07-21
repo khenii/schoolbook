@@ -250,7 +250,7 @@ export default function SessionsTab() {
                       </span>
                     ) : null}
                   </div>
-                  {!t.is_current && s.is_active && (
+                  {!t.is_current && Boolean(s.is_active) && (
                     <span className="mini-btn" onClick={() => setCurrentTerm(t.id)}>
                       Set as current
                     </span>
