@@ -547,7 +547,7 @@ export default function PaymentsPage() {
             a specific student and record a new one.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div className="page-head-actions" style={{ display: 'flex', gap: 10 }}>
           <Link className="btn-ghost" to="/class-register" style={{ textDecoration: 'none' }}>
             View by class →
           </Link>
@@ -627,8 +627,12 @@ export default function PaymentsPage() {
             const isVoidRow = g.rows.length === 1 && !!g.rows[0].void_of_payment_id;
             return (
               <div className={`t-row${g.hasVoid || isVoidRow ? ' voided-row' : ''}`} key={g.key}>
-                <div className="col-date">{g.date}</div>
+                <div className="col-date">
+                  <span className="cell-label">Date</span>
+                  {g.date}
+                </div>
                 <div className="col-student">
+                  <span className="cell-label">Student</span>
                   <div className="n">
                     {g.studentIds.length === 1 ? (
                       <Link to={`/students/${g.studentIds[0]}`} style={{ color: 'inherit', textDecoration: 'none' }}>
@@ -641,14 +645,20 @@ export default function PaymentsPage() {
                   <div className="c">{label.c}</div>
                 </div>
                 <div className="col-fee">
+                  <span className="cell-label">Fee item</span>
                   {groupFeeLabel(g)}
                   {isVoidRow && <div className="void-reason">Voided: "{g.rows[0].void_reason}"</div>}
                 </div>
                 <div className="col-method">
+                  <span className="cell-label">Method</span>
                   <span className="method-tag">{METHOD_LABEL[g.method] ?? g.method}</span>
                 </div>
-                <div className="col-receipt">{g.receiptNumber ?? '—'}</div>
+                <div className="col-receipt">
+                  <span className="cell-label">Receipt</span>
+                  {g.receiptNumber ?? '—'}
+                </div>
                 <div className="col-amt">
+                  <span className="cell-label">Amount</span>
                   {isVoidRow ? <span className="voided-amt">₦{Math.abs(g.total).toLocaleString()}</span> : `${g.total < 0 ? '-' : '+'}₦${Math.abs(g.total).toLocaleString()}`}
                 </div>
                 <div className="col-void-action">
