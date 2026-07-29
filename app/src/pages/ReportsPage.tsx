@@ -152,9 +152,12 @@ export default function ReportsPage() {
                     </div>
                   </div>
                   <div className="col-source">
+                    <span className="cell-label">Class</span>
                     <div className="t">{d.classLabel}</div>
                   </div>
-                  <div className="col-amt rust">₦{d.amountOwed.toLocaleString()}</div>
+                  <div className="col-amt rust">
+                    <span className="cell-label">Balance owed</span>₦{d.amountOwed.toLocaleString()}
+                  </div>
                   <div className="col-action">
                     <Link className="view-link" to={`/students/${d.studentId}`}>
                       View →
@@ -224,10 +227,13 @@ export default function ReportsPage() {
                     <div className="c">{a.currentClassLabel}</div>
                   </div>
                   <div className="col-source">
+                    <span className="cell-label">Arrears from</span>
                     <div className="t">{a.fromClassLevelName}</div>
                     <div className="s">{a.fromTermLabel}</div>
                   </div>
-                  <div className="col-amt gold">₦{a.amountOwed.toLocaleString()}</div>
+                  <div className="col-amt gold">
+                    <span className="cell-label">Amount owed</span>₦{a.amountOwed.toLocaleString()}
+                  </div>
                   <div className="col-action">
                     <Link className="view-link" to={`/students/${a.studentId}`}>
                       View →
@@ -269,7 +275,7 @@ export default function ReportsPage() {
           </div>
 
           <div className="table-wrap">
-            <div className="t-row head" style={{ padding: '9px 16px' }}>
+            <div className="t-row head collections-head" style={{ padding: '9px 16px' }}>
               <div style={{ flex: 1.1 }}>Class</div>
               <div style={{ flex: 2 }}>Collection rate</div>
               <div style={{ width: 110, textAlign: 'right' }}>Outstanding</div>
@@ -284,7 +290,9 @@ export default function ReportsPage() {
                     <div className="bar" style={{ width: `${c.pct ?? 0}%` }} />
                   </div>
                   <div className="pct">{c.pct ?? '—'}%</div>
-                  <div className="amt">₦{c.outstanding.toLocaleString()}</div>
+                  <div className="amt">
+                    <span className="cell-label">Outstanding</span>₦{c.outstanding.toLocaleString()}
+                  </div>
                 </div>
               ))
             )}

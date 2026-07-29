@@ -251,10 +251,18 @@ export default function StudentDetailPage() {
                       {c.sessionName} · {c.termName}
                     </div>
                   </div>
-                  <div className="col-fee">{c.feeItemName}</div>
-                  <div className="col-amt">₦{c.amount_expected.toLocaleString()}</div>
-                  <div className="col-amt">₦{c.paid.toLocaleString()}</div>
+                  <div className="col-fee">
+                    <span className="cell-label">Fee item</span>
+                    {c.feeItemName}
+                  </div>
+                  <div className="col-amt">
+                    <span className="cell-label">Charged</span>₦{c.amount_expected.toLocaleString()}
+                  </div>
+                  <div className="col-amt">
+                    <span className="cell-label">Paid</span>₦{c.paid.toLocaleString()}
+                  </div>
                   <div className="col-status">
+                    <span className="cell-label">Balance</span>
                     <span className="bal-tag owed">₦{c.balance.toLocaleString()}</span>
                   </div>
                 </div>
@@ -286,10 +294,18 @@ export default function StudentDetailPage() {
           ) : (
             currentTermCharges.map((c) => (
               <div className="t-row" key={c.id}>
-                <div className="col-fee">{c.feeItemName}</div>
-                <div className="col-amt">₦{c.amount_expected.toLocaleString()}</div>
-                <div className="col-amt">₦{c.paid.toLocaleString()}</div>
+                <div className="col-fee">
+                  <span className="cell-label">Fee item</span>
+                  {c.feeItemName}
+                </div>
+                <div className="col-amt">
+                  <span className="cell-label">Charged</span>₦{c.amount_expected.toLocaleString()}
+                </div>
+                <div className="col-amt">
+                  <span className="cell-label">Paid</span>₦{c.paid.toLocaleString()}
+                </div>
                 <div className="col-status">
+                  <span className="cell-label">Balance</span>
                   {c.balance > 0 ? (
                     <span className="bal-tag owed">₦{c.balance.toLocaleString()}</span>
                   ) : c.writtenOff > 0 ? (

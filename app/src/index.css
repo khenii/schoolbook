@@ -301,6 +301,38 @@ body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink)
 
 .page-reports .view-link:hover{ text-decoration:underline; }
 
+/* Students roster table → stacked card, below tablet-portrait width.
+   Avatar + name stay together as the card's header line (they're the
+   first two cells, and flex-wrap lets them share a row naturally);
+   status/class/action each drop to their own full-width line below. */
+@media (max-width:1023px){
+  .page-students .table-wrap .t-row.head{ display:none; }
+
+  .page-students .t-row:not(.head){
+    display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px;
+    padding:14px 16px;
+  }
+
+  .page-students .t-row:not(.head) .col-avatar{ width:36px; flex:none; }
+
+  .page-students .t-row:not(.head) .col-name{ flex:1 1 auto; min-width:0; }
+
+  .page-students .t-row:not(.head) .col-status,
+  .page-students .t-row:not(.head) .col-class,
+  .page-students .t-row:not(.head) .col-action{
+    flex-basis:100%; display:flex; align-items:center; justify-content:space-between;
+  }
+
+  .page-students .t-row:not(.head) .col-status{ border-top:1px solid var(--line); padding-top:10px; margin-top:2px; }
+
+  .page-students .t-row:not(.head) .col-action{ justify-content:flex-end; }
+
+  .page-students .cell-label{
+    display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:10px;
+    text-transform:uppercase; letter-spacing:0.05em; color:var(--slate-soft);
+  }
+}
+
 .empty-note{ padding:40px 20px; text-align:center; color:var(--slate-soft); font-size:13px; }
 
 .pagination-bar{ display:flex; align-items:center; justify-content:center; gap:6px; margin-top:16px; flex-wrap:wrap; }
@@ -438,6 +470,12 @@ body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink)
 
 .profile-actions{ margin-left:auto; display:flex; gap:10px; }
 
+@media (max-width:1023px){
+  .profile-head{ flex-wrap:wrap; }
+  .profile-meta{ flex-wrap:wrap; row-gap:6px; }
+  .profile-actions{ margin-left:0; flex-basis:100%; flex-wrap:wrap; }
+}
+
 .page-profile .btn-ghost, .page-payments .btn-ghost, .page-auditlog .btn-ghost{ padding:10px 16px; background:var(--paper-card); color:var(--slate); border:1px solid var(--line); border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
 
 .page-reports .btn-ghost{ padding:9px 15px; background:var(--paper-card); color:var(--slate); border:1px solid var(--line); border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer; }
@@ -559,6 +597,53 @@ body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink)
 .plog-amt{ font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--success); }
 
 .plog-method{ font-size:10.5px; color:var(--slate-soft); background:var(--paper); border:1px solid var(--line); padding:3px 8px; border-radius:6px; font-family:'IBM Plex Mono', monospace; }
+
+/* Student profile — arrears table, this-term-charges table, and the
+   recent-payments log → stacked cards, below tablet-portrait width. */
+@media (max-width:1023px){
+  .page-profile .table-wrap .t-row.head{ display:none; }
+
+  .page-profile .t-row:not(.head){
+    display:flex; flex-direction:column; align-items:stretch; gap:8px;
+    padding:14px 16px;
+  }
+
+  .page-profile .t-row:not(.head) > div{ width:auto; flex:none; }
+
+  .page-profile .t-row:not(.head) .col-term{ padding-bottom:6px; border-bottom:1px solid var(--line); }
+
+  .page-profile .t-row:not(.head) .col-fee,
+  .page-profile .t-row:not(.head) .col-amt,
+  .page-profile .t-row:not(.head) .col-status{
+    display:flex; align-items:center; justify-content:space-between; text-align:left;
+  }
+
+  .page-profile .t-row:not(.head) .col-action-btn{
+    display:flex; justify-content:flex-end; padding-top:8px; border-top:1px solid var(--line);
+  }
+
+  .page-profile .cell-label{
+    display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:10px;
+    text-transform:uppercase; letter-spacing:0.05em; color:var(--slate-soft);
+  }
+
+  /* Recent payments log: amount moves up next to the date, description and
+     method drop to their own full-width lines, actions get a bordered
+     strip instead of squeezing into the same line as everything else. */
+  .payment-log-row{ flex-wrap:wrap; align-items:flex-start; gap:6px 10px; padding:14px 16px; }
+
+  .plog-date{ width:auto; order:1; font-size:11px; }
+
+  .plog-amt{ order:2; margin-left:auto; }
+
+  .plog-desc{ order:3; flex-basis:100%; }
+
+  .plog-method{ order:4; }
+
+  .plog-actions{ order:5; flex-basis:100%; display:flex !important; justify-content:flex-end !important; padding-top:8px; margin-top:4px; border-top:1px solid var(--line); }
+
+  .plog-breakdown, .plog-sibling-note{ padding-left:16px !important; }
+}
 
 #jumpSession{ padding:8px 11px; border:1px solid var(--line); border-radius:8px; font-size:12px; font-family:'Inter', sans-serif; color:var(--slate); background:var(--paper-card); outline:none; }
 
@@ -903,6 +988,55 @@ body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink)
 
 .class-row .amt{ width:110px; text-align:right; font-family:'IBM Plex Mono', monospace; color:var(--slate); font-size:12px; }
 
+/* Reports (Defaulters/Arrears) → stacked card, and the Collections summary
+   row → a 2x2 grid (class + outstanding on line one, the rate bar + % on
+   line two), below tablet-portrait width. */
+@media (max-width:1023px){
+  .page-reports .table-wrap .t-row.head{ display:none; }
+
+  .page-reports .t-row:not(.head){
+    display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px;
+    padding:14px 16px;
+  }
+
+  .page-reports .t-row:not(.head) .col-avatar{ width:34px; flex:none; }
+
+  .page-reports .t-row:not(.head) .col-student{ flex:1 1 auto; min-width:0; }
+
+  .page-reports .t-row:not(.head) .col-source{
+    flex-basis:100%; border-top:1px solid var(--line); padding-top:10px; margin-top:2px;
+  }
+
+  .page-reports .t-row:not(.head) .col-source .cell-label{ display:block; margin-bottom:3px; }
+
+  .page-reports .t-row:not(.head) .col-amt,
+  .page-reports .t-row:not(.head) .col-action{
+    flex-basis:100%; display:flex; align-items:center; justify-content:space-between; text-align:left;
+  }
+
+  .page-reports .t-row:not(.head) .col-action{ justify-content:flex-end; }
+
+  .page-reports .cell-label{
+    display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:10px;
+    text-transform:uppercase; letter-spacing:0.05em; color:var(--slate-soft);
+  }
+
+  .page-reports .collections-head{ display:none; }
+
+  .page-reports .class-row{
+    display:grid; grid-template-columns:1fr auto; grid-template-areas:"lvl amt" "bar pct";
+    align-items:center; column-gap:10px; row-gap:6px; padding:12px 16px;
+  }
+
+  .page-reports .class-row .lvl{ grid-area:lvl; }
+
+  .page-reports .class-row .amt{ grid-area:amt; width:auto; display:flex; align-items:center; gap:6px; }
+
+  .page-reports .class-row .bar-wrap{ grid-area:bar; }
+
+  .page-reports .class-row .pct{ grid-area:pct; width:auto; }
+}
+
 .view{ display:none; }
 
 .view.active{ display:block; }
@@ -1149,6 +1283,68 @@ body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink)
 .totals-row .col-paid{ color:var(--success); }
 
 .totals-row .col-balance{ color:var(--rust); text-align:right; }
+
+/* Class Register → stacked card, below tablet-portrait width. Row number
+   drops (the name is enough on a card); charged/paid/balance become
+   label/value lines; the payment-entry controls wrap onto their own
+   full-width strip instead of squeezing 4 controls into one line. */
+@media (max-width:1023px){
+  .page-register .register-wrap .r-row.head{ display:none; }
+
+  .page-register .r-row:not(.head){
+    display:flex; flex-direction:column; align-items:stretch; gap:8px;
+    padding:14px 16px;
+  }
+
+  .page-register .r-row:not(.head) > div{ width:auto; flex:none; }
+
+  .page-register .col-num{ display:none; }
+
+  .page-register .r-row:not(.head) .col-charged,
+  .page-register .r-row:not(.head) .col-paid,
+  .page-register .r-row:not(.head) .col-balance{
+    display:flex; align-items:center; justify-content:space-between; text-align:left;
+  }
+
+  .page-register .r-row:not(.head) .col-charged{ border-top:1px solid var(--line); padding-top:8px; margin-top:2px; }
+
+  .page-register .no-charge-note{ flex:none !important; width:100%; text-align:left !important; padding-top:6px; }
+
+  .page-register .r-row:not(.head) .col-entry{ justify-content:flex-start; padding-top:8px; border-top:1px solid var(--line); }
+
+  .page-register .entry-controls{ flex-wrap:wrap !important; justify-content:flex-start !important; width:100%; }
+
+  .page-register .amount-input, .page-register .receipt-input{ flex:1 1 90px; width:auto !important; }
+
+  .page-register .cell-label{
+    display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:10px;
+    text-transform:uppercase; letter-spacing:0.05em; color:var(--slate-soft);
+  }
+
+  /* Totals summary line — keep it a row, just let it wrap and label its
+     figures the same way, since it's one line rather than a repeating
+     card. */
+  .page-register .totals-row{ flex-wrap:wrap; }
+
+  .page-register .totals-row .col-charged,
+  .page-register .totals-row .col-paid,
+  .page-register .totals-row .col-balance{
+    flex:1 1 auto; display:flex; align-items:center; justify-content:space-between; text-align:left;
+  }
+
+  /* Filter bar + summary stats */
+  .page-register .selector-group{ flex:1 1 140px; }
+
+  .page-register .selector-group select{ width:100%; min-width:0; }
+
+  .page-register .selector-divider{ display:none; }
+
+  .page-register .selector-export{ margin-left:0 !important; flex-basis:100%; }
+
+  .summary-strip{ flex-wrap:wrap; }
+
+  .page-register .sstat{ flex:1 1 45%; }
+}
 
 .promo-arrow{ display:flex; flex-direction:column; align-items:center; gap:4px; padding-top:16px; }
 

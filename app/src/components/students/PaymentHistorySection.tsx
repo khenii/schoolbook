@@ -178,7 +178,7 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
               </div>
               <div className="plog-method">{METHOD_LABEL[g.method] ?? g.method}</div>
               <div className="plog-amt">+₦{g.total.toLocaleString()}</div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="plog-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {g.rows.length > 1 && (
                   <span className="mini-btn" onClick={() => toggle(g.key)}>
                     {expanded.has(g.key) ? 'Hide' : 'Breakdown'}
@@ -200,7 +200,7 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
             </div>
 
             {g.rows.length > 1 && expanded.has(g.key) && (
-              <div style={{ padding: '0 16px 10px 106px', background: 'var(--paper)' }}>
+              <div className="plog-breakdown" style={{ padding: '0 16px 10px 106px', background: 'var(--paper)' }}>
                 {g.rows.map((r) => {
                   const c = chargeFor(r.charge_id);
                   const isVoid = !!r.void_of_payment_id;
@@ -234,7 +234,7 @@ export default function PaymentHistorySection({ studentId }: { studentId: string
             )}
 
             {siblingInfo && (
-              <div style={{ padding: '0 16px 10px 106px', fontSize: 11.5, color: 'var(--gold)', background: 'var(--paper)' }}>
+              <div className="plog-sibling-note" style={{ padding: '0 16px 10px 106px', fontSize: 11.5, color: 'var(--gold)', background: 'var(--paper)' }}>
                 Part of a ₦{(g.total + siblingInfo.total).toLocaleString()} household payment — also covers{' '}
                 {Array.from(siblingInfo.byChild.entries())
                   .map(([name, amount]) => `${name} (₦${amount.toLocaleString()})`)

@@ -263,7 +263,7 @@ export default function ClassRegisterPage() {
             style={{ padding: '8px 11px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12.5, background: 'var(--paper)', color: 'var(--ink)' }}
           />
         </div>
-        <div style={{ marginLeft: 'auto', alignSelf: 'flex-end' }}>
+        <div className="selector-export" style={{ marginLeft: 'auto', alignSelf: 'flex-end' }}>
           <button className="btn-ghost" onClick={handleExport} disabled={roster.length === 0}>
             Export CSV
           </button>
@@ -320,14 +320,19 @@ export default function ClassRegisterPage() {
                   <div className="c">{r.classLabel}</div>
                 </div>
                 {!r.hasCharge ? (
-                  <div style={{ flex: 3.2, textAlign: 'right', color: 'var(--slate-soft)', fontSize: 12 }}>
+                  <div className="no-charge-note" style={{ flex: 3.2, textAlign: 'right', color: 'var(--slate-soft)', fontSize: 12 }}>
                     No charge for this fee item this term
                   </div>
                 ) : (
                   <>
-                    <div className="col-charged">₦{r.charged.toLocaleString()}</div>
-                    <div className="col-paid">₦{r.paid.toLocaleString()}</div>
+                    <div className="col-charged">
+                      <span className="cell-label">Charged</span>₦{r.charged.toLocaleString()}
+                    </div>
+                    <div className="col-paid">
+                      <span className="cell-label">Paid</span>₦{r.paid.toLocaleString()}
+                    </div>
                     <div className="col-balance">
+                      <span className="cell-label">Balance</span>
                       {r.balance > 0 ? (
                         <span className="bal-tag owed">₦{r.balance.toLocaleString()}</span>
                       ) : (
@@ -337,7 +342,7 @@ export default function ClassRegisterPage() {
                     <div className="col-entry">
                       {r.balance > 0 ? (
                         <div>
-                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <div className="entry-controls" style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
                             <button className="fill-btn" onClick={() => fillFull(r.studentId, r.balance)}>
                               Full
                             </button>
@@ -346,6 +351,7 @@ export default function ClassRegisterPage() {
                               placeholder="Amount"
                               value={rowInputs[r.studentId]?.amount ?? ''}
                               onChange={(e) => setRowInput(r.studentId, 'amount', e.target.value)}
+                              className="amount-input"
                               style={{ width: 88 }}
                             />
                             <input
@@ -353,6 +359,7 @@ export default function ClassRegisterPage() {
                               placeholder="Receipt #"
                               value={rowInputs[r.studentId]?.receipt ?? ''}
                               onChange={(e) => setRowInput(r.studentId, 'receipt', e.target.value)}
+                              className="receipt-input"
                               style={{ width: 80 }}
                             />
                             <button
@@ -381,9 +388,15 @@ export default function ClassRegisterPage() {
             <div className="totals-row">
               <div className="col-num" />
               <div className="col-student">Totals for this selection</div>
-              <div className="col-charged">₦{totalCharged.toLocaleString()}</div>
-              <div className="col-paid">₦{totalCollected.toLocaleString()}</div>
-              <div className="col-balance">₦{totalOutstanding.toLocaleString()}</div>
+              <div className="col-charged">
+                <span className="cell-label">Charged</span>₦{totalCharged.toLocaleString()}
+              </div>
+              <div className="col-paid">
+                <span className="cell-label">Paid</span>₦{totalCollected.toLocaleString()}
+              </div>
+              <div className="col-balance">
+                <span className="cell-label">Balance</span>₦{totalOutstanding.toLocaleString()}
+              </div>
               <div className="col-entry" />
             </div>
           </>

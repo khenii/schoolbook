@@ -153,7 +153,7 @@ export default function StudentsPage() {
             items you configured.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div className="page-head-actions" style={{ display: 'flex', gap: 10 }}>
           <Link className="btn-ghost" to="/class-register" style={{ textDecoration: 'none' }}>
             View by class →
           </Link>
@@ -258,6 +258,7 @@ export default function StudentsPage() {
                 <div className="adm">{s.admission_number}</div>
               </div>
               <div className="col-status">
+                <span className="cell-label">Status</span>
                 {s.status === 'new' && <span className="status-tag new">NEW</span>}
                 {s.status === 'existing' && <span className="status-tag existing">EXISTING</span>}
                 {(s.status === 'withdrawn' || s.status === 'graduated') && (
@@ -265,6 +266,7 @@ export default function StudentsPage() {
                 )}
               </div>
               <div className="col-class">
+                <span className="cell-label">Class</span>
                 <span className="class-tag">{classLabel(s.current_class_arm_id)}</span>
               </div>
               <div className="col-action">
