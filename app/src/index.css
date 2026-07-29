@@ -1739,14 +1739,17 @@ h2.form-title{
 .bottom-tabs{ display:none; }
 
 .bottom-tab{
-  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:3px; padding:6px 2px; border:none; background:none; cursor:pointer;
+  flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:4px; padding:6px 1px; border:none; background:none; cursor:pointer;
   color:var(--slate-soft); text-decoration:none; font-family:'Inter', sans-serif;
 }
 
-.bottom-tab-icon{ font-size:17px; line-height:1; }
+.bottom-tab-icon{ font-size:21px; line-height:1; }
 
-.bottom-tab-label{ font-size:10px; font-weight:600; }
+.bottom-tab-label{
+  font-size:10.5px; font-weight:600; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; max-width:100%;
+}
 
 .bottom-tab.active{ color:var(--ink); }
 

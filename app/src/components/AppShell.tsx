@@ -46,12 +46,16 @@ const NAV_SECTIONS: NavSection[] = [
 // for everything else — see .bottom-tabs/.more-sheet in index.css. Kept as
 // a short, separate list from NAV_SECTIONS rather than derived from it,
 // since the split here is about phone ergonomics (thumb reach, one-hand
-// use), not the sidebar's information architecture.
+// use), not the sidebar's information architecture — that also means the
+// icons here don't have to match the sidebar's. They're picked to read on
+// their own at a glance (no adjacent section label for context, unlike the
+// sidebar), and "Class Register" is shortened to fit one line at a legible
+// size rather than wrapping mid-word.
 const CORE_TABS: NavItem[] = [
-  { to: '/', icon: '◧', label: 'Dashboard' },
-  { to: '/students', icon: '☺', label: 'Students' },
-  { to: '/payments', icon: '✎', label: 'Payments' },
-  { to: '/class-register', icon: '▤', label: 'Class Register' }
+  { to: '/', icon: '⌂', label: 'Dashboard' },
+  { to: '/students', icon: '🎓', label: 'Students' },
+  { to: '/payments', icon: '₦', label: 'Payments' },
+  { to: '/class-register', icon: '📋', label: 'Register' }
 ];
 
 const MORE_ITEMS: NavItem[] = [
