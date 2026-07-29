@@ -18,6 +18,51 @@ interface TermRow {
   is_current: number;
 }
 
+interface TxLike {
+  execute(sql: string, params?: unknown[]): Promise<unknown>;
+  getAll<T>(sql: string, params?: unknown[]): Promise<T[]>;
+}
+
+// Shared by setCurrentTerm and setActive: whenever a term becomes current,
+// its recurring charges now generate immediately as part of the same
+// transaction — no separate manual step for the common case. Logs both
+// audit actions so the trail reads the same as clicking the old manual
+// button would have.
+//
+// Deliberately NOT wired into createSession's "make this active" path: a
+// session just created has no students in its class arms yet (those only
+// move over once Promotion runs), so generating at that moment would bill
+// students against their *old* class level's pricing before they've
+// actually been promoted into the new one. This only fires through
+// setCurrentTerm/setActive, which in practice happens after promotion.
+async function activateTerm(
+  tx: TxLike,
+  params: { schoolId: string; actorId: string; termId: string; sessionId: string }
+) {
+  const { schoolId, actorId, termId, sessionId } = params;
+  await tx.execute('UPDATE terms SET is_current = 0 WHERE is_current = 1');
+  await tx.execute('UPDATE terms SET is_current = 1 WHERE id = ?', [termId]);
+  await logAudit(tx, {
+    schoolId,
+    actorId,
+    action: 'term.set_current',
+    entityType: 'term',
+    entityId: termId
+  });
+  const result = await generateRecurringChargesForTerm(tx, { schoolId, termId, sessionId });
+  if (result.generated > 0) {
+    await logAudit(tx, {
+      schoolId,
+      actorId,
+      action: 'charges.recurring_generated',
+      entityType: 'term',
+      entityId: termId,
+      metadata: { generated: result.generated, skipped: result.skipped, via: 'auto-on-set-current' }
+    });
+  }
+  return result;
+}
+
 // No mockup covers Sessions — it doesn't exist in the delivered designs at
 // all, but sessions/terms and "generate recurring charges" are core,
 // load-bearing mechanics (spec §3.9/§3.10: the whole app's current-term
@@ -41,6 +86,8 @@ export default function SessionsTab() {
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
   const [termMessage, setTermMessage] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState<string | null>(null);
+  const [activatingSessionId, setActivatingSessionId] = useState<string | null>(null);
+  const [settingCurrentTermId, setSettingCurrentTermId] = useState<string | null>(null);
 
   async function createSession() {
     const trimmed = name.trim();
@@ -85,67 +132,71 @@ export default function SessionsTab() {
   }
 
   async function setActive(id: string) {
-    await db.writeTransaction(async (tx) => {
-      await tx.execute('UPDATE sessions SET is_active = 0 WHERE is_active = 1');
-      await tx.execute('UPDATE sessions SET is_active = 1 WHERE id = ?', [id]);
+    setActivatingSessionId(id);
+    try {
+      await db.writeTransaction(async (tx) => {
+        await tx.execute('UPDATE sessions SET is_active = 0 WHERE is_active = 1');
+        await tx.execute('UPDATE sessions SET is_active = 1 WHERE id = ?', [id]);
 
-      // "Current term" only makes sense relative to the active session —
-      // switching sessions without touching it would leave the dashboard
-      // anchored to a term in a session nobody's enrolling into anymore.
-      // Keep this session's own current term if it already had one
-      // (re-activating a session you switched away from earlier), otherwise
-      // default to its earliest term, same as a brand-new session gets.
-      const [existingCurrent] = await tx.getAll<{ id: string }>(
-        'SELECT id FROM terms WHERE session_id = ? AND is_current = 1 LIMIT 1',
-        [id]
-      );
-      await tx.execute('UPDATE terms SET is_current = 0 WHERE is_current = 1');
-      if (existingCurrent) {
-        await tx.execute('UPDATE terms SET is_current = 1 WHERE id = ?', [existingCurrent.id]);
-      } else {
-        await tx.execute(
-          `UPDATE terms SET is_current = 1
-           WHERE id = (SELECT id FROM terms WHERE session_id = ? ORDER BY created_at ASC LIMIT 1)`,
+        await logAudit(tx, {
+          schoolId,
+          actorId: account.id,
+          action: 'session.activated',
+          entityType: 'session',
+          entityId: id
+        });
+
+        // "Current term" only makes sense relative to the active session —
+        // switching sessions without touching it would leave the dashboard
+        // anchored to a term in a session nobody's enrolling into anymore.
+        // Keep this session's own current term if it already had one
+        // (re-activating a session you switched away from earlier), otherwise
+        // default to its earliest term, same as a brand-new session gets.
+        // activateTerm below also generates that term's recurring charges.
+        const [existingCurrent] = await tx.getAll<{ id: string }>(
+          'SELECT id FROM terms WHERE session_id = ? AND is_current = 1 LIMIT 1',
           [id]
         );
-      }
+        const targetTermId =
+          existingCurrent?.id ??
+          (
+            await tx.getAll<{ id: string }>(
+              'SELECT id FROM terms WHERE session_id = ? ORDER BY created_at ASC LIMIT 1',
+              [id]
+            )
+          )[0]?.id;
 
-      await logAudit(tx, {
-        schoolId,
-        actorId: account.id,
-        action: 'session.activated',
-        entityType: 'session',
-        entityId: id
+        if (targetTermId) {
+          await activateTerm(tx, { schoolId, actorId: account.id, termId: targetTermId, sessionId: id });
+        }
       });
-    });
+    } finally {
+      setActivatingSessionId(null);
+    }
   }
 
   async function setCurrentTerm(termId: string) {
-    await db.writeTransaction(async (tx) => {
-      // Defense in depth: the UI only offers this for terms in the active
-      // session, but enforce it here too rather than trusting the caller —
-      // a term's "current" flag drifting from its session's "active" flag
-      // is exactly the inconsistency this whole change exists to prevent.
-      const [term] = await tx.getAll<{ session_id: string }>('SELECT session_id FROM terms WHERE id = ?', [termId]);
-      if (!term) return;
-      const [session] = await tx.getAll<{ is_active: number }>(
-        'SELECT is_active FROM sessions WHERE id = ?',
-        [term.session_id]
-      );
-      if (!session?.is_active) {
-        throw new Error('Only a term in the active session can be set as current — activate that session first.');
-      }
-
-      await tx.execute('UPDATE terms SET is_current = 0 WHERE is_current = 1');
-      await tx.execute('UPDATE terms SET is_current = 1 WHERE id = ?', [termId]);
-      await logAudit(tx, {
-        schoolId,
-        actorId: account.id,
-        action: 'term.set_current',
-        entityType: 'term',
-        entityId: termId
+    setSettingCurrentTermId(termId);
+    try {
+      await db.writeTransaction(async (tx) => {
+        // Defense in depth: the UI only offers this for terms in the active
+        // session, but enforce it here too rather than trusting the caller —
+        // a term's "current" flag drifting from its session's "active" flag
+        // is exactly the inconsistency this whole change exists to prevent.
+        const [term] = await tx.getAll<{ session_id: string }>('SELECT session_id FROM terms WHERE id = ?', [termId]);
+        if (!term) return;
+        const [session] = await tx.getAll<{ is_active: number }>(
+          'SELECT is_active FROM sessions WHERE id = ?',
+          [term.session_id]
+        );
+        if (!session?.is_active) {
+          throw new Error('Only a term in the active session can be set as current — activate that session first.');
+        }
+        await activateTerm(tx, { schoolId, actorId: account.id, termId, sessionId: term.session_id });
       });
-    });
+    } finally {
+      setSettingCurrentTermId(null);
+    }
   }
 
   async function handleGenerateCharges(term: TermRow) {
@@ -214,12 +265,13 @@ export default function SessionsTab() {
               ) : (
                 <span
                   className="mini-btn"
+                  style={{ opacity: activatingSessionId === s.id ? 0.5 : 1, pointerEvents: activatingSessionId ? 'none' : 'auto' }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setActive(s.id);
                   }}
                 >
-                  Set as active
+                  {activatingSessionId === s.id ? 'Activating…' : 'Set as active'}
                 </span>
               )}
               <div className="chevron">▸</div>
@@ -227,16 +279,16 @@ export default function SessionsTab() {
 
             <div className="level-body">
               <p style={{ fontSize: 12, color: 'var(--slate-soft)', marginBottom: 10, lineHeight: 1.5 }}>
-                Generating recurring charges bills every currently-enrolled student for that term's all-students
-                recurring fee items (e.g. School Fees). One-off and new-students-only items are never generated
-                here — those only happen once, at enrollment. "Current term" drives the dashboard, reports, and each
-                student's balance split — only one term across the whole school can be current at a time.
+                Recurring charges (e.g. School Fees) now generate automatically for every currently-enrolled student
+                the moment a term is set current — no separate step needed for that. One-off and new-students-only
+                items are never generated here — those only happen once, at enrollment. Use "Generate recurring
+                charges" below to re-run it by hand, which is still useful after adding a new recurring fee item
+                mid-term, or for backfilling a past term.
                 {!s.is_active && (
                   <>
                     {' '}
-                    This session isn't active, so its terms are shown for reference and you can still backfill
-                    recurring charges here, but none of them can be set as current — activate this session above
-                    first if you want to change that.
+                    This session isn't active, so its terms are shown for reference and none of them can be set as
+                    current — activate this session above first if you want to change that.
                   </>
                 )}
               </p>
@@ -251,8 +303,12 @@ export default function SessionsTab() {
                     ) : null}
                   </div>
                   {!t.is_current && Boolean(s.is_active) && (
-                    <span className="mini-btn" onClick={() => setCurrentTerm(t.id)}>
-                      Set as current
+                    <span
+                      className="mini-btn"
+                      style={{ opacity: settingCurrentTermId === t.id ? 0.5 : 1, pointerEvents: settingCurrentTermId ? 'none' : 'auto' }}
+                      onClick={() => setCurrentTerm(t.id)}
+                    >
+                      {settingCurrentTermId === t.id ? 'Setting current…' : 'Set as current'}
                     </span>
                   )}
                   <button className="btn-ghost" onClick={() => handleGenerateCharges(t)} disabled={generating === t.id}>
