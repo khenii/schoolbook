@@ -93,6 +93,42 @@ export default function DashboardPage({ syncStatus }: { syncStatus: string }) {
         </div>
       </div>
 
+      {stats.currentTerm && (
+        <div className={`term-progress-block${stats.collectionPace ? ` tp-block-${stats.collectionPace}` : ''}`}>
+          <div className="panel-block-head">
+            <h3>{stats.currentTerm.name} — collection pace</h3>
+            {stats.termProgress && stats.collectionPace && stats.collectionPace !== 'no-data' && (
+              <span className={`tp-status-tag tp-${stats.collectionPace}`}>
+                {stats.collectionPace === 'on-track' ? 'On track' : stats.collectionPace === 'behind' ? 'Behind' : 'At risk'}
+              </span>
+            )}
+          </div>
+          <div className="panel-block-body">
+            {stats.termProgress ? (
+              <>
+                <div className="tp-bar-wrap">
+                  <div className="tp-bar" style={{ width: `${stats.termProgress.pctElapsed}%` }} />
+                </div>
+                <div className="tp-sub">
+                  {stats.termProgress.hasNotStarted
+                    ? `Starts in ${stats.termProgress.totalDays - stats.termProgress.elapsedDays} day(s)`
+                    : stats.termProgress.hasEnded
+                      ? `Term dates have passed (${stats.termProgress.totalDays} day term)`
+                      : `Day ${stats.termProgress.elapsedDays} of ${stats.termProgress.totalDays} — ${stats.termProgress.pctElapsed}% of the term elapsed`}
+                  {' · '}
+                  {stats.collectionPct !== null ? `${stats.collectionPct}% collected so far` : 'no charges for this term yet'}
+                </div>
+              </>
+            ) : (
+              <div className="tp-sub">
+                No start/end dates set for this term yet, so collection pace can't be tracked against the calendar.{' '}
+                <Link to="/settings?tab=sessions">Add them in Settings → Sessions</Link>.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="quicklinks">
         <Link className="qlink" to="/students/new">
           <div className="qi">+</div>Add a student

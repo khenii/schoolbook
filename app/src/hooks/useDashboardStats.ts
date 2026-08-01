@@ -3,6 +3,7 @@ import { useQuery } from '@powersync/react';
 import { useAppContext } from '../lib/AppContext';
 import { useActiveSession } from './useActiveSession';
 import { useSchoolLedger } from './useSchoolLedger';
+import { collectionPaceStatus, computeTermProgress, type CollectionPaceStatus } from '../lib/termProgress';
 
 interface SchoolRow {
   name: string;
@@ -94,6 +95,21 @@ export function useDashboardStats() {
   const totalArrears = arrearsCharges.reduce((sum, c) => sum + c.balance, 0);
   const arrearsStudents = new Set(arrearsCharges.map((c) => c.student_id)).size;
 
+  // Term progress ("day X of Y") is purely calendar-based, independent of
+  // money; collectionPct is scoped the same way classCollectionRates
+  // already is (every charge for the term, not just enrolled students')
+  // so it can't quietly disagree with the collection-rate numbers shown
+  // elsewhere on this same page.
+  const expectedThisTerm = currentTermCharges.reduce((sum, c) => sum + c.amount_expected, 0);
+  const collectionPct = expectedThisTerm > 0 ? Math.round((collectedThisTerm / expectedThisTerm) * 100) : null;
+  const termProgress = useMemo(
+    () => computeTermProgress(currentTerm?.start_date ?? null, currentTerm?.end_date ?? null),
+    [currentTerm]
+  );
+  const collectionPace: CollectionPaceStatus | null = termProgress
+    ? collectionPaceStatus(termProgress.pctElapsed, collectionPct)
+    : null;
+
   const topDefaulters = useMemo<DefaulterRow[]>(() => {
     const byStudent = new Map<string, { amountOwed: number; hasArrears: boolean }>();
     for (const c of chargeBalances) {
@@ -183,6 +199,9 @@ export function useDashboardStats() {
     outstandingThisTermStudents,
     totalArrears,
     arrearsStudents,
+    collectionPct,
+    termProgress,
+    collectionPace,
     topDefaulters,
     recentActivity,
     classCollectionRates

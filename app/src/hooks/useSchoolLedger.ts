@@ -42,6 +42,8 @@ interface TermRow {
   session_id: string;
   name: string;
   is_current: number;
+  start_date: string | null;
+  end_date: string | null;
   created_at: string;
 }
 
@@ -102,7 +104,9 @@ export function useSchoolLedger() {
     'SELECT id, name, sort_order FROM class_levels ORDER BY sort_order ASC'
   );
   const { data: sessions } = useQuery<SessionRow>('SELECT id, name, created_at FROM sessions');
-  const { data: terms } = useQuery<TermRow>('SELECT id, session_id, name, is_current, created_at FROM terms');
+  const { data: terms } = useQuery<TermRow>(
+    'SELECT id, session_id, name, is_current, start_date, end_date, created_at FROM terms'
+  );
   const { data: charges } = useQuery<ChargeRow>(
     'SELECT id, student_id, fee_item_id, term_id, session_id, class_level_id, amount_expected FROM charges'
   );

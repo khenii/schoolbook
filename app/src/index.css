@@ -113,6 +113,31 @@ body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink)
 
 .panel-block-head a:hover{ text-decoration:underline; }
 
+/* Dashboard's "collection pace" card — reuses .panel-block's head/body
+   shell, just extends it with a status tag and a slim elapsed-time bar.
+   The bar's fill always represents time elapsed, never collection status,
+   so length and color never encode two different things at once — the
+   status tag and card wash are what carry "is this good or bad". */
+.term-progress-block{ background:var(--paper-card); border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-bottom:20px; }
+
+.tp-status-tag{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:6px; background:var(--paper); color:var(--slate-soft); }
+
+.tp-status-tag.tp-on-track{ background:var(--success-bg); color:var(--success); }
+
+.tp-status-tag.tp-behind{ background:#FCF3E3; color:var(--gold); }
+
+.tp-status-tag.tp-at-risk{ background:var(--rust-bg); color:var(--rust); }
+
+.term-progress-block.tp-block-behind{ border-color:var(--gold-soft); }
+
+.term-progress-block.tp-block-at-risk{ border-color:var(--rust); }
+
+.tp-bar-wrap{ height:7px; background:var(--paper); border-radius:4px; overflow:hidden; margin-bottom:10px; }
+
+.tp-bar{ height:100%; background:var(--slate); border-radius:4px; }
+
+.tp-sub{ font-size:12.5px; color:var(--slate-soft); line-height:1.5; }
+
 .def-row{ display:flex; align-items:center; gap:12px; padding:11px 18px; border-bottom:1px solid var(--line); font-size:12.5px; }
 
 .def-row:last-child{ border-bottom:none; }
@@ -1083,6 +1108,17 @@ body{ font-family:'Inter', sans-serif; background:var(--paper); color:var(--ink)
 .arm-badge{ width:26px; height:26px; border-radius:7px; background:var(--paper); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono', monospace; font-weight:700; font-size:12px; color:var(--slate); }
 
 .arm-name{ flex:1; font-weight:500; }
+
+.term-dates-sub{ font-weight:400; font-size:11px; color:var(--slate-soft); font-family:'IBM Plex Mono', monospace; margin-top:2px; }
+
+.term-date-editor{
+  flex-basis:100%; display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;
+  margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);
+}
+
+.term-date-editor label{ display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:600; color:var(--slate-soft); text-transform:uppercase; letter-spacing:0.04em; }
+
+.term-date-editor input{ padding:7px 9px; border:1px solid var(--line); border-radius:7px; font-size:12.5px; font-family:'Inter', sans-serif; color:var(--ink); background:var(--paper-card); outline:none; }
 
 .count-group{ display:flex; align-items:center; gap:10px; }
 

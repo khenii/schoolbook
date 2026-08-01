@@ -16,6 +16,8 @@ interface TermRow {
   session_id: string;
   name: string;
   is_current: number;
+  start_date: string | null;
+  end_date: string | null;
 }
 
 interface TxLike {
@@ -76,7 +78,7 @@ export default function SessionsTab() {
 
   const { data: sessions } = useQuery<SessionRow>('SELECT * FROM sessions ORDER BY name DESC');
   const { data: terms } = useQuery<TermRow>(
-    'SELECT id, session_id, name, is_current FROM terms ORDER BY created_at ASC'
+    'SELECT id, session_id, name, is_current, start_date, end_date FROM terms ORDER BY created_at ASC'
   );
 
   const [name, setName] = useState('');
@@ -88,6 +90,10 @@ export default function SessionsTab() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [activatingSessionId, setActivatingSessionId] = useState<string | null>(null);
   const [settingCurrentTermId, setSettingCurrentTermId] = useState<string | null>(null);
+  const [editingDatesTermId, setEditingDatesTermId] = useState<string | null>(null);
+  const [dateForm, setDateForm] = useState<{ start: string; end: string }>({ start: '', end: '' });
+  const [dateError, setDateError] = useState<string | null>(null);
+  const [savingDates, setSavingDates] = useState(false);
 
   async function createSession() {
     const trimmed = name.trim();
@@ -236,6 +242,58 @@ export default function SessionsTab() {
     }
   }
 
+  function openDateEditor(t: TermRow) {
+    setEditingDatesTermId(t.id);
+    setDateForm({ start: t.start_date ?? '', end: t.end_date ?? '' });
+    setDateError(null);
+  }
+
+  function closeDateEditor() {
+    setEditingDatesTermId(null);
+    setDateError(null);
+  }
+
+  // Backfills a term's calendar dates without needing a data migration —
+  // createSession() never captured these (the columns existed in the schema
+  // from day one, just unwritten), so this is the only place they get set,
+  // for both brand-new terms and old ones. Feeds the Dashboard's "collection
+  // pace" indicator, which is otherwise unable to say where a term is
+  // relative to its own calendar.
+  async function saveDates(termId: string) {
+    setDateError(null);
+    if (!dateForm.start || !dateForm.end) {
+      setDateError('Both a start and end date are needed.');
+      return;
+    }
+    if (dateForm.end <= dateForm.start) {
+      setDateError('End date must be after the start date.');
+      return;
+    }
+    setSavingDates(true);
+    try {
+      await db.writeTransaction(async (tx) => {
+        await tx.execute('UPDATE terms SET start_date = ?, end_date = ? WHERE id = ?', [
+          dateForm.start,
+          dateForm.end,
+          termId
+        ]);
+        await logAudit(tx, {
+          schoolId,
+          actorId: account.id,
+          action: 'term.dates_set',
+          entityType: 'term',
+          entityId: termId,
+          metadata: { startDate: dateForm.start, endDate: dateForm.end }
+        });
+      });
+      setEditingDatesTermId(null);
+    } catch (err) {
+      setDateError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setSavingDates(false);
+    }
+  }
+
   return (
     <div>
       <div className="tab-subhead">
@@ -283,7 +341,8 @@ export default function SessionsTab() {
                 the moment a term is set current — no separate step needed for that. One-off and new-students-only
                 items are never generated here — those only happen once, at enrollment. Use "Generate recurring
                 charges" below to re-run it by hand, which is still useful after adding a new recurring fee item
-                mid-term, or for backfilling a past term.
+                mid-term, or for backfilling a past term. Set a term's start/end dates below so the Dashboard can
+                show collection pace against the calendar (e.g. "day 40 of 90 — 30% collected").
                 {!s.is_active && (
                   <>
                     {' '}
@@ -301,6 +360,9 @@ export default function SessionsTab() {
                         CURRENT
                       </span>
                     ) : null}
+                    <div className="term-dates-sub">
+                      {t.start_date && t.end_date ? `${t.start_date} → ${t.end_date}` : 'No dates set'}
+                    </div>
                   </div>
                   {!t.is_current && Boolean(s.is_active) && (
                     <span
@@ -311,12 +373,46 @@ export default function SessionsTab() {
                       {settingCurrentTermId === t.id ? 'Setting current…' : 'Set as current'}
                     </span>
                   )}
+                  <span className="mini-btn" onClick={() => (editingDatesTermId === t.id ? closeDateEditor() : openDateEditor(t))}>
+                    {t.start_date ? 'Edit dates' : 'Set dates'}
+                  </span>
                   <button className="btn-ghost" onClick={() => handleGenerateCharges(t)} disabled={generating === t.id}>
                     {generating === t.id ? 'Generating…' : 'Generate recurring charges'}
                   </button>
                   {termMessage[t.id] && (
                     <div style={{ flexBasis: '100%', fontSize: 11.5, color: 'var(--slate-soft)', marginTop: 4 }}>
                       {termMessage[t.id]}
+                    </div>
+                  )}
+                  {editingDatesTermId === t.id && (
+                    <div className="term-date-editor">
+                      <label>
+                        Start
+                        <input
+                          type="date"
+                          value={dateForm.start}
+                          onChange={(e) => setDateForm((f) => ({ ...f, start: e.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        End
+                        <input
+                          type="date"
+                          value={dateForm.end}
+                          onChange={(e) => setDateForm((f) => ({ ...f, end: e.target.value }))}
+                        />
+                      </label>
+                      <button className="btn-ghost" onClick={() => saveDates(t.id)} disabled={savingDates}>
+                        {savingDates ? 'Saving…' : 'Save'}
+                      </button>
+                      <button onClick={closeDateEditor} style={{ color: 'var(--slate-soft)' }}>
+                        Cancel
+                      </button>
+                      {dateError && (
+                        <div className="field-error" style={{ display: 'block', flexBasis: '100%' }}>
+                          {dateError}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
